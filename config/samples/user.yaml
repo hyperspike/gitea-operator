@@ -4,11 +4,11 @@ metadata:
   labels:
     app.kubernetes.io/name: gitea-operator
     app.kubernetes.io/managed-by: kustomize
-  name: dan
+  name: test
 spec:
-  email: dan@git.local
+  email: test@git.local
   password:
-    name: dan-password
+    name: test-password
     key: password
   instance:
     name: gitea
@@ -16,7 +16,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: dan-password
+  name: test-password
 type: Opaque
 stringData:
   password: test1234
