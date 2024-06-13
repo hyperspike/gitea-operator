@@ -1,0 +1,6 @@
+## Append samples of your project ##
+resources:
+- gitea.yaml
+- org.yaml
+- repo.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

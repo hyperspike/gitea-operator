@@ -1,0 +1,22 @@
+apiVersion: hyperspike.io/v1
+kind: User
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dan
+spec:
+  email: dan@git.local
+  password:
+    name: dan-password
+    key: password
+  instance:
+    name: gitea
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dan-password
+type: Opaque
+stringData:
+  password: test1234

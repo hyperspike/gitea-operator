@@ -1,0 +1,23 @@
+# permissions for end users to view repoes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: repo-viewer-role
+rules:
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - repoes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - repoes/status
+  verbs:
+  - get

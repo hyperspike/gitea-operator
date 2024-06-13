@@ -1,0 +1,23 @@
+# permissions for end users to view gitea.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gitea-viewer-role
+rules:
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - gitea
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - gitea/status
+  verbs:
+  - get

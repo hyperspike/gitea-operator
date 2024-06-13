@@ -1,0 +1,202 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - acid.zalan.do
+  resources:
+  - postgresqls
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - gitea
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - gitea/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - gitea/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - orgs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - orgs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - orgs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - repoes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - repoes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - repoes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - users
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - users/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - users/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch

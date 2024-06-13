@@ -1,0 +1,11 @@
+apiVersion: hyperspike.io/v1
+kind: Org
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: test
+spec:
+  description: Test Env for Operator
+  instance:
+    name: gitea

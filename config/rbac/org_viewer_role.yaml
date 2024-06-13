@@ -1,0 +1,23 @@
+# permissions for end users to view orgs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: org-viewer-role
+rules:
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - orgs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - orgs/status
+  verbs:
+  - get

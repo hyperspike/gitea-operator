@@ -1,0 +1,115 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: orgs.hyperspike.io
+spec:
+  group: hyperspike.io
+  names:
+    kind: Org
+    listKind: OrgList
+    plural: orgs
+    singular: org
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.provisioned
+      name: Ready
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Org is the Schema for the orgs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: OrgSpec defines the desired state of Org
+            properties:
+              description:
+                description: A brief explanation of the organization.
+                type: string
+              fullname:
+                description: The human readable name of the organization.
+                type: string
+              instance:
+                description: the gitea instance to build the org in
+                properties:
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                type: object
+              location:
+                description: The physical location of the org, if any
+                type: string
+              users:
+                description: users list to
+                items:
+                  properties:
+                    createOrgRepo:
+                      type: boolean
+                    description:
+                      type: string
+                    includeAllRepos:
+                      type: boolean
+                    members:
+                      items:
+                        type: string
+                      type: array
+                    name:
+                      type: string
+                    permission:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              visibility:
+                description: The ACL name of the org. public, private, etc.
+                type: string
+              website:
+                description: The url of the website associated with this org.
+                type: string
+            required:
+            - instance
+            type: object
+          status:
+            description: OrgStatus defines the observed state of Org
+            properties:
+              provisioned:
+                type: boolean
+            required:
+            - provisioned
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
