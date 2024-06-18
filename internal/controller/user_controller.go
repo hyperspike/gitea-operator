@@ -180,23 +180,30 @@ func (r *UserReconciler) userReady(ctx context.Context, user *hyperv1.User) erro
 }
 
 func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user *hyperv1.User) error {
+	logger := log.FromContext(ctx)
 	fetched, res, err := gClient.GetUserInfo(user.Name)
 	if err != nil && res.StatusCode != 404 {
 		return err
+	}
+	loginName := user.Spec.LoginName
+	if loginName == "" {
+		loginName = user.Name
 	}
 	want := &g.User{
 		Email:    user.Spec.Email,
 		FullName: user.Spec.FullName,
 	}
-	if res.StatusCode == 200 {
+	if fetched != nil && res.StatusCode == 200 {
 		if err := r.reconcileSSHKeys(gClient, user); err != nil {
 			return err
 		}
 		if !compareUsers(want, fetched) {
 			if _, err := gClient.AdminEditUser(user.Name, g.EditUserOption{
-				Email:    &user.Spec.Email,
-				FullName: &user.Spec.FullName,
+				Email:     &user.Spec.Email,
+				FullName:  &user.Spec.FullName,
+				LoginName: loginName,
 			}); err != nil {
+				logger.Error(err, "failed to update user", "user", user.Name)
 				return err
 			}
 		}
@@ -209,14 +216,19 @@ func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user
 	_, _, err = gClient.AdminCreateUser(g.CreateUserOption{
 		FullName:           user.Spec.FullName,
 		Email:              user.Spec.Email,
-		LoginName:          user.Spec.LoginName,
+		LoginName:          loginName,
 		Username:           user.Name,
 		SendNotify:         user.Spec.SendNotify,
 		SourceID:           user.Spec.SourceId,
 		MustChangePassword: ptrBool(false),
 		Password:           pw,
 	})
+	if err != nil {
+		logger.Error(err, "failed to create user", "user", user.Name)
+		return err
+	}
 	if err := r.reconcileSSHKeys(gClient, user); err != nil {
+		logger.Error(err, "failed to add ssh keys", "user", user.Name)
 		return err
 	}
 	if err := r.userReady(ctx, user); err != nil {

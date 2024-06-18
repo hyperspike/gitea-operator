@@ -9,3 +9,8 @@ spec:
   description: Test Env for Operator
   instance:
     name: gitea
+  teams:
+  - name: Test
+    permission: admin
+    members:
+    - demo

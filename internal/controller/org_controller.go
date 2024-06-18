@@ -183,20 +183,7 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 	if err != nil {
 		return err
 	}
-	add := []hyperv1.Team{}
 	del := []int64{}
-	for _, team := range org.Spec.Teams {
-		found := false
-		for _, t := range teams {
-			if t.Name == team.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			add = append(add, team)
-		}
-	}
 	for _, team := range teams {
 		rem := true
 		for _, t := range org.Spec.Teams {
@@ -209,8 +196,8 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 			del = append(del, team.ID)
 		}
 	}
-	for _, a := range add {
-		if err := upsertTeam(ctx, gClient, &a, org.Name); err != nil {
+	for _, t := range org.Spec.Teams {
+		if err := upsertTeam(ctx, gClient, &t, org.Name); err != nil {
 			return err
 		}
 	}
@@ -223,6 +210,7 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 }
 
 func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgName string) error {
+	logger := log.FromContext(ctx)
 	teams, _, err := gClient.SearchOrgTeams(orgName, &g.SearchTeamsOptions{})
 	if err != nil {
 		return err
@@ -234,6 +222,31 @@ func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgN
 			id = t.ID
 			matched = true
 		}
+	}
+	var perm g.AccessMode
+	switch team.Permission {
+	case "owner":
+		perm = g.AccessModeOwner
+	case "admin":
+		perm = g.AccessModeAdmin
+	case "write":
+		perm = g.AccessModeWrite
+	case "read":
+		perm = g.AccessModeRead
+	default:
+		perm = g.AccessModeNone
+	}
+	units := []g.RepoUnitType{
+		g.RepoUnitCode,
+		g.RepoUnitIssues,
+		g.RepoUnitPulls,
+		g.RepoUnitExtIssues,
+		g.RepoUnitWiki,
+		g.RepoUnitExtWiki,
+		g.RepoUnitReleases,
+		g.RepoUnitProjects,
+		g.RepoUnitPackages,
+		g.RepoUnitActions,
 	}
 	if matched {
 		fetched, res, err := gClient.GetTeam(id)
@@ -250,7 +263,11 @@ func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgN
 					Description:             &team.Description,
 					CanCreateOrgRepo:        &team.CreateOrgRepo,
 					IncludesAllRepositories: &team.IncludeAllRepos,
+					Permission:              perm,
+					Name:                    team.Name,
+					Units:                   units,
 				}); err != nil {
+					logger.Error(err, "failed to update team", "team", team.Name)
 					return err
 				}
 			}
@@ -262,8 +279,11 @@ func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgN
 		Description:             team.Description,
 		CanCreateOrgRepo:        team.CreateOrgRepo,
 		IncludesAllRepositories: team.IncludeAllRepos,
+		Permission:              perm,
+		Units:                   units,
 	})
 	if err != nil {
+		logger.Error(err, "failed to create team", "team", team.Name)
 		return err
 	}
 	return reconcileMembers(ctx, gClient, team, t.ID)

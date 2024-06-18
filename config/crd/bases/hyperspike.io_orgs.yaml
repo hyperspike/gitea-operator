@@ -69,7 +69,7 @@ spec:
               location:
                 description: The physical location of the org, if any
                 type: string
-              users:
+              teams:
                 description: users list to
                 items:
                   properties:
@@ -86,7 +86,17 @@ spec:
                     name:
                       type: string
                     permission:
+                      enum:
+                      - none
+                      - read
+                      - write
+                      - admin
+                      - owner
                       type: string
+                    units:
+                      items:
+                        type: string
+                      type: array
                   required:
                   - name
                   type: object

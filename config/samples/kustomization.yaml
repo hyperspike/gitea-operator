@@ -3,4 +3,5 @@ resources:
 - gitea.yaml
 - org.yaml
 - repo.yaml
+- user.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

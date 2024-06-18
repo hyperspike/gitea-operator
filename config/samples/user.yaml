@@ -4,9 +4,32 @@ metadata:
   labels:
     app.kubernetes.io/name: gitea-operator
     app.kubernetes.io/managed-by: kustomize
-  name: test
+  name: demo
 spec:
-  email: test@git.local
+  email: demo@git.local
+  password:
+    name: test-password
+    key: password
+  instance:
+    name: gitea
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-password
+type: Opaque
+stringData:
+  password: test1234
+---
+apiVersion: hyperspike.io/v1
+kind: User
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: demo2
+spec:
+  email: demo2@git.local
   password:
     name: test-password
     key: password

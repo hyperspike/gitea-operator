@@ -41,7 +41,7 @@ type OrgSpec struct {
 	Location string `json:"location,omitempty"`
 
 	// users list to
-	Teams []Team `json:"users,omitempty"`
+	Teams []Team `json:"teams,omitempty"`
 
 	// The ACL name of the org. public, private, etc.
 	Visibility string `json:"visibility,omitempty"`
@@ -58,12 +58,15 @@ type OrgStatus struct {
 }
 
 type Team struct {
-	Name            string   `json:"name"`
-	Description     string   `json:"description,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=none;read;write;admin;owner
 	Permission      string   `json:"permission,omitempty"`
 	CreateOrgRepo   bool     `json:"createOrgRepo,omitempty"`
 	IncludeAllRepos bool     `json:"includeAllRepos,omitempty"`
 	Members         []string `json:"members,omitempty"`
+	Units           []string `json:"units,omitempty"`
 }
 
 // +kubebuilder:object:root=true
