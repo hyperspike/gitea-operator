@@ -1,10 +1,10 @@
 # gitea-operator
 
-A Kubernetes-Operator to deploy and Manage Gitea
+A Kubernetes-Operator to deploy and Manage [Gitea](https://github.com/go-gitea/gitea)
 
 ## Description
 
-deploy a gitea instance and manage users and stuff on it
+deploy a gitea instance and manage users, ssh keys, organizations, organization teams, and repos.
 
 ## Getting Started
 
@@ -97,6 +97,18 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/gitea-operator/<tag or 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+``
+make minikube
+```
+
+```
+make port-forward
+```
+
+```
+make tunnel
+```
 
 ```
 TAG=latest; make docker-build IMG=localhost:5000/controller:$TAG; docker push localhost:5000/controller:$TAG ; make IMG=localhost:5000/controller:$TAG build-installer  ; kubectl apply -f dist/install.yaml
