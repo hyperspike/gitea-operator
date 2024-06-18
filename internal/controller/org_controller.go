@@ -183,7 +183,7 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 	if err != nil {
 		return err
 	}
-	add := []*hyperv1.Team{}
+	add := []hyperv1.Team{}
 	del := []int64{}
 	for _, team := range org.Spec.Teams {
 		found := false
@@ -194,7 +194,7 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 			}
 		}
 		if !found {
-			add = append(add, &team)
+			add = append(add, team)
 		}
 	}
 	for _, team := range teams {
@@ -210,7 +210,7 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 		}
 	}
 	for _, a := range add {
-		if err := upsertTeam(ctx, gClient, a, org.Name); err != nil {
+		if err := upsertTeam(ctx, gClient, &a, org.Name); err != nil {
 			return err
 		}
 	}

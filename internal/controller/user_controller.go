@@ -77,6 +77,20 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if gClient == nil && gitea == nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
+	isRepoMarkedToBeDeleted := user.GetDeletionTimestamp() != nil
+	if isRepoMarkedToBeDeleted {
+		if controllerutil.ContainsFinalizer(user, userFinalizer) {
+			if err := r.deleteUser(gClient, user); err != nil {
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(user, userFinalizer)
+			err := r.Update(ctx, user)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
 
 	if err := r.upsertUser(ctx, gClient, user); err != nil {
 		return ctrl.Result{}, err
