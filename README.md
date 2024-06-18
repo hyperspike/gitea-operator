@@ -98,19 +98,19 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/gitea-operator/<tag or 
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
-``
+```sh
 make minikube
 ```
 
-```
+```sh
 make port-forward
 ```
 
-```
+```sh
 make tunnel
 ```
 
-```
+```sh
 TAG=latest; make docker-build IMG=localhost:5000/controller:$TAG; docker push localhost:5000/controller:$TAG ; make IMG=localhost:5000/controller:$TAG build-installer  ; kubectl apply -f dist/install.yaml
 ```
 
