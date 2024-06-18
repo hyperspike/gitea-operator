@@ -132,6 +132,9 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				return ctrl.Result{}, err
 			}
 		}
+		if err := reconcileTeams(ctx, gClient, org); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 	_, _, err = gClient.CreateOrg(g.CreateOrgOption{
@@ -145,6 +148,9 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if err := reconcileTeams(ctx, gClient, org); err != nil {
+		return ctrl.Result{}, err
+	}
 	if !org.Status.Provisioned {
 		org.Status.Provisioned = true
 		if err := r.Client.Status().Update(ctx, org); err != nil {
@@ -156,8 +162,154 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func (r *OrgReconciler) upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team) error {
+func compareTeams(team1, team2 *g.Team) bool {
+	if team1.Name != team2.Name {
+		return false
+	}
+	if team1.Description != team2.Description {
+		return false
+	}
+	if team1.CanCreateOrgRepo != team2.CanCreateOrgRepo {
+		return false
+	}
+	if team1.IncludesAllRepositories != team2.IncludesAllRepositories {
+		return false
+	}
+	return true
+}
 
+func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) error {
+	teams, _, err := gClient.SearchOrgTeams(org.Name, &g.SearchTeamsOptions{})
+	if err != nil {
+		return err
+	}
+	add := []*hyperv1.Team{}
+	del := []int64{}
+	for _, team := range org.Spec.Teams {
+		found := false
+		for _, t := range teams {
+			if t.Name == team.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			add = append(add, &team)
+		}
+	}
+	for _, team := range teams {
+		rem := true
+		for _, t := range org.Spec.Teams {
+			if t.Name == team.Name {
+				rem = false
+				break
+			}
+		}
+		if rem {
+			del = append(del, team.ID)
+		}
+	}
+	for _, a := range add {
+		if err := upsertTeam(ctx, gClient, a, org.Name); err != nil {
+			return err
+		}
+	}
+	for _, d := range del {
+		if _, err := gClient.DeleteTeam(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgName string) error {
+	teams, _, err := gClient.SearchOrgTeams(orgName, &g.SearchTeamsOptions{})
+	if err != nil {
+		return err
+	}
+	var id int64
+	var matched bool
+	for _, t := range teams {
+		if t.Name == team.Name {
+			id = t.ID
+			matched = true
+		}
+	}
+	if matched {
+		fetched, res, err := gClient.GetTeam(id)
+		if err != nil && res.StatusCode != 404 {
+			return err
+		}
+		want := &g.Team{}
+		if res.StatusCode == 200 {
+			if err := reconcileMembers(ctx, gClient, team, id); err != nil {
+				return err
+			}
+			if !compareTeams(want, fetched) {
+				if _, err := gClient.EditTeam(fetched.ID, g.EditTeamOption{
+					Description:             &team.Description,
+					CanCreateOrgRepo:        &team.CreateOrgRepo,
+					IncludesAllRepositories: &team.IncludeAllRepos,
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	t, _, err := gClient.CreateTeam(orgName, g.CreateTeamOption{
+		Name:                    team.Name,
+		Description:             team.Description,
+		CanCreateOrgRepo:        team.CreateOrgRepo,
+		IncludesAllRepositories: team.IncludeAllRepos,
+	})
+	if err != nil {
+		return err
+	}
+	return reconcileMembers(ctx, gClient, team, t.ID)
+}
+
+func reconcileMembers(ctx context.Context, gClient *g.Client, team *hyperv1.Team, id int64) error {
+	logger := log.FromContext(ctx)
+	users, _, err := gClient.ListTeamMembers(id, g.ListTeamMembersOptions{})
+	if err != nil {
+		return err
+	}
+	add := []string{}
+	del := []string{}
+	for _, user := range team.Members {
+		found := false
+		for _, gUser := range users {
+			if gUser.UserName == user {
+				found = true
+				break
+			}
+		}
+		if !found {
+			add = append(add, user)
+		}
+	}
+	for _, gUser := range users {
+		rem := true
+		for _, user := range team.Members {
+			if user == gUser.UserName {
+				rem = false
+			}
+		}
+		if rem {
+			del = append(del, gUser.UserName)
+		}
+	}
+	for _, u := range add {
+		if _, err := gClient.AddTeamMember(id, u); err != nil {
+			logger.Error(err, "failed to add team member", "user", u, "team", team.Name)
+		}
+	}
+	for _, d := range del {
+		if _, err := gClient.RemoveTeamMember(id, d); err != nil {
+			logger.Error(err, "failed to delete team member", "user", d, "team", team.Name)
+		}
+	}
 	return nil
 }
 
