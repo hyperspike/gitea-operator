@@ -25,12 +25,10 @@ import (
 
 // GiteaSpec defines the desired state of Gitea
 type GiteaSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// External Hostname of the instance
-	// +kubebuilder:example:=git.local
-	Hostname string `json:"hostname,omitempty"`
+	// Ingress for external access
+	Ingress IngressSpec `json:"ingress,omitempty"`
 
 	// Create a loadbalancer for ssh access
 	ExternalSSH bool `json:"externalSSH,omitempty"`
@@ -49,6 +47,15 @@ type GiteaSpec struct {
 	// Override the operator set image
 	// +kubebuilder:default:="gitea/gitea:1.22.0"
 	Image string `json:"image,omitempty"`
+}
+
+type IngressSpec struct {
+	// External Hostname of the instance
+	// +kubebuilder:example:=git.local
+	Host string `json:"host,omitempty"`
+
+	// Ingress Annotations
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // GiteaStatus defines the observed state of Gitea

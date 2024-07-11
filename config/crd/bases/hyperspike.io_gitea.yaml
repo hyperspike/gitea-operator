@@ -61,14 +61,23 @@ spec:
               externalSSH:
                 description: Create a loadbalancer for ssh access
                 type: boolean
-              hostname:
-                description: External Hostname of the instance
-                example: git.local
-                type: string
               image:
                 default: gitea/gitea:1.22.0
                 description: Override the operator set image
                 type: string
+              ingress:
+                description: Ingress for external access
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Ingress Annotations
+                    type: object
+                  host:
+                    description: External Hostname of the instance
+                    example: git.local
+                    type: string
+                type: object
               prometheus:
                 default: false
                 description: enable prometheus integrations

@@ -262,7 +262,7 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	}, false); err != nil {
 		return ctrl.Result{}, err
 	}
-	hostname := gitea.Spec.Hostname
+	hostname := gitea.Spec.Ingress.Host
 	if hostname == "" {
 		hostname = "git.example.com"
 	}
@@ -1228,16 +1228,17 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 
 func (r *GiteaReconciler) upsertGiteaIngress(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
-	hostname := gitea.Spec.Hostname
+	hostname := gitea.Spec.Ingress.Host
 	if hostname == "" {
 		hostname = "git.example.com"
 	}
 	prefix := netv1.PathTypePrefix
 	ing := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      gitea.Name,
-			Namespace: gitea.Namespace,
-			Labels:    labels(gitea.Name),
+			Name:        gitea.Name,
+			Namespace:   gitea.Namespace,
+			Labels:      labels(gitea.Name),
+			Annotations: gitea.Spec.Ingress.Annotations,
 		},
 		Spec: netv1.IngressSpec{
 			IngressClassName: ptrString("nginx"),

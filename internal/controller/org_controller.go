@@ -104,8 +104,8 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		vis = g.VisibleTypePrivate
 	}
 	website := org.Spec.Website
-	if website == "" && gitea.Spec.Hostname != "" {
-		website = "https://" + gitea.Spec.Hostname + "/" + org.Name
+	if website == "" && gitea.Spec.Ingress.Host != "" {
+		website = "https://" + gitea.Spec.Ingress.Host + "/" + org.Name
 	}
 	want := &g.Organization{
 		UserName:    org.Name,
