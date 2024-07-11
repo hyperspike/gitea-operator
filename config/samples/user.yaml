@@ -35,11 +35,3 @@ spec:
     key: password
   instance:
     name: gitea
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: test-password
-type: Opaque
-stringData:
-  password: test1234

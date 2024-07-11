@@ -26,7 +26,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 K8S_VERSION ?= 1.30.2
-CILIUM_VERSION ?= 1.15.6
+CILIUM_VERSION ?= 1.15.7
 
 V ?= 0
 ifeq ($(V), 1)
