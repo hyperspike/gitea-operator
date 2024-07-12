@@ -8,7 +8,7 @@ require (
 	code.gitea.io/sdk/gitea v0.18.0
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
-	github.com/zalando/postgres-operator v1.12.0
+	github.com/zalando/postgres-operator v1.12.2
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v0.30.2
