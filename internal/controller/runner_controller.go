@@ -172,6 +172,9 @@ func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hype
 		logger.Error(err, "failed json unmarshal "+url)
 		return "", "", err
 	}
+	if tresp.Token == "" {
+		return "", "", nil
+	}
 
 	return tresp.Token, instanceUrl, nil
 }
