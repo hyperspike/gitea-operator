@@ -147,7 +147,7 @@ func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hype
 		logger.Error(err, "failed to get server version "+instanceUrl)
 		return "", "", err
 	}
-	url := "http://" + git.Name + "." + git.Namespace + ".svc/api/v1/" + orgName + "/actions/runners/registration-token"
+	url := "http://" + git.Name + "." + git.Namespace + ".svc/api/v1/orgs/" + orgName + "/actions/runners/registration-token"
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "token "+string(secret.Data["token"]))
