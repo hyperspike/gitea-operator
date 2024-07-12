@@ -303,7 +303,7 @@ func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.
 							Command: []string{
 								"sh",
 								"-c",
-								"\"while ! nc -z localhost 2376 </dev/null; do echo 'waiting for docker daemon...'; sleep 5; done; /sbin/tini -- /opt/act/run.sh\"",
+								"while ! nc -z localhost 2376 </dev/null; do echo 'waiting for docker daemon...'; sleep 5; done; /sbin/tini -- /opt/act/run.sh",
 							},
 							Env: []corev1.EnvVar{
 								{
