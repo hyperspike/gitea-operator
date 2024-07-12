@@ -124,8 +124,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-github.com/zalando/postgres-operator v1.12.0 h1:9C5u8UgrVQDRdzB3/T7kKWYKEf2vbF9EZHqtCRSgJtE=
-github.com/zalando/postgres-operator v1.12.0/go.mod h1:tKNY4pMjnr5BhuzGiGngf1SPJ7K1vVRCmMkfmV9KZoQ=
+github.com/zalando/postgres-operator v1.12.2 h1:HJLrGSJLKYkvdpHIxlAKhXWTeRsgDQki2s9QOyApUX0=
+github.com/zalando/postgres-operator v1.12.2/go.mod h1:tKNY4pMjnr5BhuzGiGngf1SPJ7K1vVRCmMkfmV9KZoQ=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
