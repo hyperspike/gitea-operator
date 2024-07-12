@@ -79,6 +79,10 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if token == "" {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
+	if err := r.upsertRunnerSA(ctx, runner); err != nil {
+		logger.Error(err, "failed to upsert Runner Service Account")
+		return ctrl.Result{}, err
+	}
 	if err := r.upsertRunnerSecret(ctx, token, runner); err != nil {
 		logger.Error(err, "failed to upsert Runner Secret")
 		return ctrl.Result{}, err
@@ -183,6 +187,31 @@ type tokenRunner struct {
 	Token string `json:"token"`
 }
 
+func (r *RunnerReconciler) upsertRunnerSA(ctx context.Context, runner *hyperv1.Runner) error {
+	logger := log.FromContext(ctx)
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      runner.Name,
+			Namespace: runner.Namespace,
+			Labels:    labels(runner.Name),
+		},
+	}
+	if err := controllerutil.SetControllerReference(runner, sa, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: runner.Name, Namespace: runner.Namespace}, sa)
+	if err != nil && errors.IsNotFound(err) {
+		r.Recorder.Event(runner, "Normal", "Created",
+			fmt.Sprintf("ServiceAccount %s is created", runner.Name))
+		if err := r.Create(ctx, sa); err != nil {
+			logger.Error(err, "failed to create serviceaccount")
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
+}
 func (r *RunnerReconciler) upsertRunnerSecret(ctx context.Context, token string, runner *hyperv1.Runner) error {
 	logger := log.FromContext(ctx)
 	secret := corev1.Secret{
