@@ -37,7 +37,7 @@ type RunnerSpec struct {
 	// The Gitea Org to create org runners in
 	Org *OrgRef `json:"org,omitempty"`
 	// the gitea instance to create global runners in
-	Instance InstanceType `json:"instance"`
+	Instance InstanceType `json:"instance,omitempty"`
 }
 
 // RunnerStatus defines the observed state of Runner

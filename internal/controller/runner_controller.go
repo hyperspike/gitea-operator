@@ -87,6 +87,13 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		logger.Error(err, "failed to upsert Runner")
 		return ctrl.Result{}, err
 	}
+	if !runner.Status.Provisioned {
+		runner.Status.Provisioned = true
+		if err := r.Client.Status().Update(ctx, runner); err != nil {
+			logger.Error(err, "Failed to update Runner status")
+			return ctrl.Result{}, nil
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -170,7 +177,7 @@ func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hype
 }
 
 type tokenRunner struct {
-	Token string `json:"toen"`
+	Token string `json:"token"`
 }
 
 func (r *RunnerReconciler) upsertRunnerSecret(ctx context.Context, token string, runner *hyperv1.Runner) error {

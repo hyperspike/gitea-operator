@@ -1,0 +1,7 @@
+apiVersion: hyperspike.io/v1
+kind: Runner
+metadata:
+  name: runner
+spec:
+  org:
+    name: test

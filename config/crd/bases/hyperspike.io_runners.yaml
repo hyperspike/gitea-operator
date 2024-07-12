@@ -81,7 +81,6 @@ spec:
                 default: false
                 type: boolean
             required:
-            - instance
             - replicas
             - rootless
             type: object

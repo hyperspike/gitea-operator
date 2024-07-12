@@ -513,7 +513,6 @@ spec:
                 default: false
                 type: boolean
             required:
-            - instance
             - replicas
             - rootless
             type: object
@@ -1243,7 +1242,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: localhost:5000/controller:1
+        image: localhost:5000/controller:latest
         livenessProbe:
           httpGet:
             path: /healthz
