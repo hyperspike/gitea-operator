@@ -153,6 +153,9 @@ func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hype
 	}
 	url := "http://" + git.Name + "." + git.Namespace + ".svc/api/v1/orgs/" + orgName + "/actions/runners/registration-token"
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", "", nil
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "token "+string(secret.Data["token"]))
 	resp, err := http.DefaultClient.Do(req)
