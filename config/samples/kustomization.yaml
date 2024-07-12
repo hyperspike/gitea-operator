@@ -4,4 +4,5 @@ resources:
 - org.yaml
 - repo.yaml
 - user.yaml
+- v1_runner.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

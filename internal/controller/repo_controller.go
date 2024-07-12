@@ -66,13 +66,6 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !controllerutil.ContainsFinalizer(repo, repoFinalizer) {
-		controllerutil.AddFinalizer(repo, repoFinalizer)
-		if err := r.Update(ctx, repo); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	gClient, gitea, err := r.buildClient(ctx, repo.Spec.Org, repo.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -139,6 +132,12 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			if err := r.Client.Status().Update(ctx, repo); err != nil {
 				logger.Error(err, "Failed to update Repo status")
 				return ctrl.Result{}, nil
+			}
+		}
+		if !controllerutil.ContainsFinalizer(repo, repoFinalizer) {
+			controllerutil.AddFinalizer(repo, repoFinalizer)
+			if err := r.Update(ctx, repo); err != nil {
+				return ctrl.Result{}, err
 			}
 		}
 	}

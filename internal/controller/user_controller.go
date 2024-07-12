@@ -63,13 +63,6 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		logger.Error(err, "failed to get user")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if !controllerutil.ContainsFinalizer(user, userFinalizer) {
-		controllerutil.AddFinalizer(user, userFinalizer)
-		if err := r.Update(ctx, user); err != nil {
-			logger.Error(err, "failed to add finalizers")
-			return ctrl.Result{}, err
-		}
-	}
 	gClient, gitea, err := r.buildClient(ctx, user.Spec.Instance, user.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -94,6 +87,13 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	if err := r.upsertUser(ctx, gClient, user); err != nil {
 		return ctrl.Result{}, err
+	}
+	if !controllerutil.ContainsFinalizer(user, userFinalizer) {
+		controllerutil.AddFinalizer(user, userFinalizer)
+		if err := r.Update(ctx, user); err != nil {
+			logger.Error(err, "failed to add finalizers")
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil

@@ -1,0 +1,23 @@
+# permissions for end users to view runners.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: runner-viewer-role
+rules:
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - runners
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - runners/status
+  verbs:
+  - get

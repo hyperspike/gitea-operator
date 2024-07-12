@@ -157,6 +157,32 @@ rules:
 - apiGroups:
   - hyperspike.io
   resources:
+  - runners
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - runners/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - runners/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - hyperspike.io
+  resources:
   - users
   verbs:
   - create

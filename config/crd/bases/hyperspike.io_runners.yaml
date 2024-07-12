@@ -1,0 +1,100 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: runners.hyperspike.io
+spec:
+  group: hyperspike.io
+  names:
+    kind: Runner
+    listKind: RunnerList
+    plural: runners
+    singular: runner
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.provisioned
+      name: Ready
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Runner is the Schema for the runners API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RunnerSpec defines the desired state of Runner
+            properties:
+              instance:
+                description: the gitea instance to create global runners in
+                properties:
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                type: object
+              org:
+                description: The Gitea Org to create org runners in
+                properties:
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                type: object
+              replicas:
+                default: 1
+                type: integer
+              rootless:
+                default: false
+                type: boolean
+            required:
+            - instance
+            - replicas
+            - rootless
+            type: object
+          status:
+            description: RunnerStatus defines the observed state of Runner
+            properties:
+              provisioned:
+                type: boolean
+            required:
+            - provisioned
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
