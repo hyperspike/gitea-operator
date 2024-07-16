@@ -146,7 +146,10 @@ func (r *UserReconciler) password(ctx context.Context, user *hyperv1.User) (stri
 		if errors.IsNotFound(err) {
 			secret.Name = user.Spec.Password.Name
 			secret.Namespace = user.Namespace
-			pw := randString(16)
+			pw, err := randString(16)
+			if err != nil {
+				return "", err
+			}
 			secret.Data[user.Spec.Password.Key] = []byte(pw)
 			if err := r.Create(ctx, secret); err != nil {
 				return "", err

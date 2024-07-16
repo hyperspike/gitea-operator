@@ -19,11 +19,12 @@ package controller
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -49,20 +50,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var rng *rand.Rand
-
 func init() {
-	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	buf := make([]byte, 1)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		panic(fmt.Sprintf("crypto/rand is unavailable: Read() failed %#v", err))
+	}
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func randString(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rng.Intn(len(letterRunes))]
+func randString(n int) (string, error) {
+	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	ret := make([]byte, n)
+	for i := 0; i < n; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			return "", err
+		}
+		ret[i] = letters[num.Int64()]
 	}
-	return string(b)
+
+	return string(ret), nil
 }
 
 // GiteaReconciler reconciles a Gitea object
@@ -303,7 +311,11 @@ START_SSH_SERVER=true`,
 		return ctrl.Result{}, err
 	}
 
-	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-admin", map[string]string{"username": "gitea", "password": randString(14)}, true); err != nil {
+	rs, err := randString(14)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-admin", map[string]string{"username": "gitea", "password": rs}, true); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-config", map[string]string{
