@@ -1,4 +1,4 @@
-# Image URL to use all building/pushing image targets
+ Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.30.1
@@ -84,13 +84,15 @@ test: manifests generate fmt vet envtest ## Run tests.
 test-e2e:
 	$Q$(GO) test ./test/e2e/ -v -ginkgo.v
 
-.PHONY: lint
+.PHONY: lint lint-fix
 lint: golangci-lint ## Run golangci-lint linter
 	$Q$(GOLANGCI_LINT) run
 
-.PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$Q$(GOLANGCI_LINT) run --fix
+
+sec:
+	$Q$(GOSEC) ./...
 
 ##@ Build
 
@@ -189,6 +191,7 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+GOSEC := $(shell which gosec)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.4.1
