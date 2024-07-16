@@ -40,6 +40,16 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ env.RELEASE_VERSION }}
 
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Build it
+        run: make V=1
+
       - name: Build and push Docker image
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c
         with:
