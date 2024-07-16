@@ -3,6 +3,9 @@ name: Scan
 # Run workflow each time code is pushed to your repository and on a schedule.
 # The scheduled workflow runs every at 00:00 on Sunday UTC time.
 on:
+  push:
+    branches:
+    - main
   pull_request:
 
 jobs:
