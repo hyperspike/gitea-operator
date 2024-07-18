@@ -21,22 +21,21 @@ import (
 	"time"
 
 	g "code.gitea.io/sdk/gitea"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	hclient "hyperspike.io/gitea-operator/internal/client"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	hyperv1 "hyperspike.io/gitea-operator/api/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // RepoReconciler reconciles a Repo object
 type RepoReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	h      *hclient.Client
 }
 
 const repoFinalizer = "repo.hyperspike.io/finalizer"
@@ -66,18 +65,19 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	gClient, gitea, err := r.buildClient(ctx, repo.Spec.Org, repo.Namespace)
+	h, gitea, err := hclient.BuildFromOrg(ctx, r.Client, repo.Spec.Org, repo.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if gClient == nil && gitea == nil {
+	if h == nil && gitea == nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
+	r.h = h
 
 	isRepoMarkedToBeDeleted := repo.GetDeletionTimestamp() != nil
 	if isRepoMarkedToBeDeleted {
 		if controllerutil.ContainsFinalizer(repo, repoFinalizer) {
-			if err := r.deleteRepo(gClient, repo); err != nil {
+			if err := r.deleteRepo(repo); err != nil {
 				return ctrl.Result{}, err
 			}
 			controllerutil.RemoveFinalizer(repo, repoFinalizer)
@@ -99,20 +99,20 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		Private:     repo.Spec.Private,
 	}
 	if repo.Spec.Org != nil {
-		gRepo, resp, err := gClient.GetRepo(repo.Spec.Org.Name, repo.Name)
+		gRepo, resp, err := r.h.GetRepo(repo.Spec.Org.Name, repo.Name)
 		if err != nil && resp.StatusCode != 404 {
 			return ctrl.Result{}, err
 		}
 		if resp.StatusCode == 200 {
 			if !compareRepo(want, gRepo) {
 				logger.Info("updating repo")
-				if _, _, err := gClient.EditRepo(repo.Spec.Org.Name, repo.Name, g.EditRepoOption{}); err != nil {
+				if _, _, err := r.h.EditRepo(repo.Spec.Org.Name, repo.Name, g.EditRepoOption{}); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
 		}
 		logger.Info("creating repo")
-		_, _, err = gClient.CreateOrgRepo(repo.Spec.Org.Name, g.CreateRepoOption{
+		_, _, err = r.h.CreateOrgRepo(repo.Spec.Org.Name, g.CreateRepoOption{
 			Name:          repo.Name,
 			Description:   repo.Spec.Description,
 			Private:       repo.Spec.Private,
@@ -142,7 +142,7 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 	}
 	if repo.Spec.User != nil {
-		_, _, err := gClient.CreateRepo(g.CreateRepoOption{})
+		_, _, err := r.h.CreateRepo(g.CreateRepoOption{})
 		if err != nil {
 			return ctrl.Result{}, nil
 		}
@@ -158,61 +158,9 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (r *RepoReconciler) deleteRepo(gClient *g.Client, repo *hyperv1.Repo) error {
-	_, err := gClient.DeleteRepo(repo.Spec.Org.Name, repo.Name)
+func (r *RepoReconciler) deleteRepo(repo *hyperv1.Repo) error {
+	_, err := r.h.DeleteRepo(repo.Spec.Org.Name, repo.Name)
 	return err
-}
-
-func (r *RepoReconciler) buildClient(ctx context.Context, instance *hyperv1.OrgRef, ns string) (*g.Client, *hyperv1.Gitea, error) {
-	logger := log.FromContext(ctx)
-
-	orgName := instance.Name
-	orgNamespace := instance.Namespace
-	if orgNamespace == "" {
-		orgNamespace = ns
-	}
-	org := &hyperv1.Org{}
-	if err := r.Get(ctx, types.NamespacedName{Name: orgName, Namespace: orgNamespace}, org); err != nil {
-		logger.Error(err, "failed to get gitea")
-		return nil, nil, err
-	}
-
-	git := &hyperv1.Gitea{}
-	gitName := org.Spec.Instance.Name
-	gitNamespace := org.Spec.Instance.Namespace
-	if gitNamespace == "" {
-		gitNamespace = ns
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: gitName, Namespace: gitNamespace}, git); err != nil {
-		logger.Error(err, "failed to get gitea")
-		return nil, nil, err
-	}
-	if !git.Status.Ready {
-		return nil, nil, nil
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      git.Name + "-admin",
-			Namespace: git.Namespace,
-		},
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: git.Name + "-admin", Namespace: git.Namespace}, secret); err != nil {
-		logger.Error(err, "failed getting admin secret "+git.Name+"-admin ")
-		return nil, nil, err
-	}
-	url := "http://" + git.Name + "." + git.Namespace + ".svc"
-	gClient, err := g.NewClient(url, g.SetContext(ctx), g.SetToken(string(secret.Data["token"])))
-	if err != nil {
-		logger.Error(err, "failed to create client for "+url)
-		return nil, nil, err
-	}
-	_, _, err = gClient.ServerVersion()
-	if err != nil {
-		logger.Error(err, "failed to get server version "+url)
-		return nil, nil, err
-	}
-	return gClient, git, nil
 }
 
 func compareRepo(fetch, req *g.Repository) bool {

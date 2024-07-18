@@ -21,8 +21,8 @@ import (
 	"time"
 
 	g "code.gitea.io/sdk/gitea"
+	hclient "hyperspike.io/gitea-operator/internal/client"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,6 +38,7 @@ import (
 type UserReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	h      *hclient.Client
 }
 
 const userFinalizer = "user.hyperspike.io/finalizer"
@@ -63,17 +64,18 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		logger.Error(err, "failed to get user")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	gClient, gitea, err := r.buildClient(ctx, user.Spec.Instance, user.Namespace)
+	h, gitea, err := hclient.Build(ctx, r.Client, &user.Spec.Instance, user.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if gClient == nil && gitea == nil {
+	if h == nil && gitea == nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
-	isRepoMarkedToBeDeleted := user.GetDeletionTimestamp() != nil
-	if isRepoMarkedToBeDeleted {
+	r.h = h
+	isUserMarkedToBeDeleted := user.GetDeletionTimestamp() != nil
+	if isUserMarkedToBeDeleted {
 		if controllerutil.ContainsFinalizer(user, userFinalizer) {
-			if err := r.deleteUser(gClient, user); err != nil {
+			if err := r.deleteUser(user); err != nil {
 				return ctrl.Result{}, err
 			}
 			controllerutil.RemoveFinalizer(user, userFinalizer)
@@ -85,7 +87,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.upsertUser(ctx, gClient, user); err != nil {
+	if err := r.upsertUser(ctx, user); err != nil {
 		return ctrl.Result{}, err
 	}
 	if !controllerutil.ContainsFinalizer(user, userFinalizer) {
@@ -97,46 +99,6 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *UserReconciler) buildClient(ctx context.Context, instance hyperv1.InstanceType, ns string) (*g.Client, *hyperv1.Gitea, error) {
-	logger := log.FromContext(ctx)
-
-	name := instance.Name
-	namespace := instance.Namespace
-	if namespace == "" {
-		namespace = ns
-	}
-	git := &hyperv1.Gitea{}
-	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, git); err != nil {
-		logger.Error(err, "failed to get gitea")
-		return nil, nil, err
-	}
-	if !git.Status.Ready {
-		return nil, nil, nil
-	}
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      git.Name + "-admin",
-			Namespace: git.Namespace,
-		},
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: git.Name + "-admin", Namespace: git.Namespace}, secret); err != nil {
-		logger.Error(err, "failed getting admin secret "+git.Name+"-admin ")
-		return nil, nil, err
-	}
-	url := "http://" + git.Name + "." + git.Namespace + ".svc"
-	gClient, err := g.NewClient(url, g.SetContext(ctx), g.SetToken(string(secret.Data["token"])))
-	if err != nil {
-		logger.Error(err, "failed to create client for "+url)
-		return nil, nil, err
-	}
-	_, _, err = gClient.ServerVersion()
-	if err != nil {
-		logger.Error(err, "failed to get server version "+url)
-		return nil, nil, err
-	}
-	return gClient, git, nil
 }
 
 func (r *UserReconciler) password(ctx context.Context, user *hyperv1.User) (string, error) {
@@ -182,9 +144,9 @@ func (r *UserReconciler) userReady(ctx context.Context, user *hyperv1.User) erro
 	return nil
 }
 
-func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user *hyperv1.User) error {
+func (r *UserReconciler) upsertUser(ctx context.Context, user *hyperv1.User) error {
 	logger := log.FromContext(ctx)
-	fetched, res, err := gClient.GetUserInfo(user.Name)
+	fetched, res, err := r.h.GetUserInfo(user.Name)
 	if err != nil && res.StatusCode != 404 {
 		return err
 	}
@@ -197,11 +159,11 @@ func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user
 		FullName: user.Spec.FullName,
 	}
 	if fetched != nil && res.StatusCode == 200 {
-		if err := r.reconcileSSHKeys(gClient, user); err != nil {
+		if err := r.reconcileSSHKeys(user); err != nil {
 			return err
 		}
 		if !compareUsers(want, fetched) {
-			if _, err := gClient.AdminEditUser(user.Name, g.EditUserOption{
+			if _, err := r.h.AdminEditUser(user.Name, g.EditUserOption{
 				Email:     &user.Spec.Email,
 				FullName:  &user.Spec.FullName,
 				LoginName: loginName,
@@ -216,7 +178,7 @@ func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user
 	if err != nil {
 		return err
 	}
-	_, _, err = gClient.AdminCreateUser(g.CreateUserOption{
+	_, _, err = r.h.AdminCreateUser(g.CreateUserOption{
 		FullName:           user.Spec.FullName,
 		Email:              user.Spec.Email,
 		LoginName:          loginName,
@@ -230,7 +192,7 @@ func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user
 		logger.Error(err, "failed to create user", "user", user.Name)
 		return err
 	}
-	if err := r.reconcileSSHKeys(gClient, user); err != nil {
+	if err := r.reconcileSSHKeys(user); err != nil {
 		logger.Error(err, "failed to add ssh keys", "user", user.Name)
 		return err
 	}
@@ -240,8 +202,8 @@ func (r *UserReconciler) upsertUser(ctx context.Context, gClient *g.Client, user
 	return err
 }
 
-func (r *UserReconciler) reconcileSSHKeys(gClient *g.Client, user *hyperv1.User) error {
-	keys, _, err := gClient.ListPublicKeys(user.Name, g.ListPublicKeysOptions{})
+func (r *UserReconciler) reconcileSSHKeys(user *hyperv1.User) error {
+	keys, _, err := r.h.ListPublicKeys(user.Name, g.ListPublicKeysOptions{})
 	if err != nil {
 		return err
 	}
@@ -271,17 +233,17 @@ func (r *UserReconciler) reconcileSSHKeys(gClient *g.Client, user *hyperv1.User)
 		}
 	}
 	for _, k := range deleteKeys {
-		_, _ = gClient.AdminDeleteUserPublicKey(user.Name, int(k))
+		_, _ = r.h.AdminDeleteUserPublicKey(user.Name, int(k))
 	}
 	for _, k := range addKeys {
 		// @TODO handle errors
-		_, _, _ = gClient.AdminCreateUserPublicKey(user.Name, g.CreateKeyOption{ReadOnly: false, Key: k, Title: user.Name + "-key"})
+		_, _, _ = r.h.AdminCreateUserPublicKey(user.Name, g.CreateKeyOption{ReadOnly: false, Key: k, Title: user.Name + "-key"})
 	}
 	return nil
 }
 
-func (r *UserReconciler) deleteUser(gClient *g.Client, user *hyperv1.User) error {
-	_, err := gClient.AdminDeleteUser(user.Name)
+func (r *UserReconciler) deleteUser(user *hyperv1.User) error {
+	_, err := r.h.AdminDeleteUser(user.Name)
 	return err
 }
 

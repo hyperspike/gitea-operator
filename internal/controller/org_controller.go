@@ -21,22 +21,21 @@ import (
 	"time"
 
 	g "code.gitea.io/sdk/gitea"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	hclient "hyperspike.io/gitea-operator/internal/client"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	hyperv1 "hyperspike.io/gitea-operator/api/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // OrgReconciler reconciles a Org object
 type OrgReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	h      *hclient.Client
 }
 
 const orgFinalizer = "org.hyperspike.io/finalizer"
@@ -71,17 +70,18 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, err
 		}
 	}
-	gClient, gitea, err := r.buildClient(ctx, org.Spec.Instance, org.Namespace)
+	h, gitea, err := hclient.Build(ctx, r.Client, &org.Spec.Instance, org.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if gClient == nil && gitea == nil {
+	if h == nil && gitea == nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
+	r.h = h
 	isRepoMarkedToBeDeleted := org.GetDeletionTimestamp() != nil
 	if isRepoMarkedToBeDeleted {
 		if controllerutil.ContainsFinalizer(org, orgFinalizer) {
-			if err := r.deleteOrg(gClient, org); err != nil {
+			if err := r.deleteOrg(org); err != nil {
 				return ctrl.Result{}, err
 			}
 			controllerutil.RemoveFinalizer(org, orgFinalizer)
@@ -115,14 +115,14 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		Location:    org.Spec.Location,
 		Visibility:  org.Spec.Visibility,
 	}
-	o, resp, err := gClient.GetOrg(org.Name)
+	o, resp, err := h.GetOrg(org.Name)
 	if err != nil && resp.StatusCode != 404 {
 		return ctrl.Result{}, err
 	}
 	if resp.StatusCode == 200 {
 		if !compare(want, o) {
 			logger.Info("updating org")
-			if _, err := gClient.EditOrg(org.Name, g.EditOrgOption{
+			if _, err := r.h.EditOrg(org.Name, g.EditOrgOption{
 				FullName:    org.Spec.FullName,
 				Description: org.Spec.Description,
 				Website:     website,
@@ -132,12 +132,12 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				return ctrl.Result{}, err
 			}
 		}
-		if err := reconcileTeams(ctx, gClient, org); err != nil {
+		if err := r.reconcileTeams(ctx, org); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
 	}
-	_, _, err = gClient.CreateOrg(g.CreateOrgOption{
+	_, _, err = r.h.CreateOrg(g.CreateOrgOption{
 		Name:        org.Name,
 		FullName:    org.Spec.FullName,
 		Description: org.Spec.Description,
@@ -148,7 +148,7 @@ func (r *OrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := reconcileTeams(ctx, gClient, org); err != nil {
+	if err := r.reconcileTeams(ctx, org); err != nil {
 		return ctrl.Result{}, err
 	}
 	if !org.Status.Provisioned {
@@ -178,8 +178,8 @@ func compareTeams(team1, team2 *g.Team) bool {
 	return true
 }
 
-func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) error {
-	teams, _, err := gClient.SearchOrgTeams(org.Name, &g.SearchTeamsOptions{})
+func (r *OrgReconciler) reconcileTeams(ctx context.Context, org *hyperv1.Org) error {
+	teams, _, err := r.h.SearchOrgTeams(org.Name, &g.SearchTeamsOptions{})
 	if err != nil {
 		return err
 	}
@@ -197,21 +197,21 @@ func reconcileTeams(ctx context.Context, gClient *g.Client, org *hyperv1.Org) er
 		}
 	}
 	for _, t := range org.Spec.Teams {
-		if err := upsertTeam(ctx, gClient, &t, org.Name); err != nil {
+		if err := r.upsertTeam(ctx, &t, org.Name); err != nil {
 			return err
 		}
 	}
 	for _, d := range del {
-		if _, err := gClient.DeleteTeam(d); err != nil {
+		if _, err := r.h.DeleteTeam(d); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgName string) error {
+func (r *OrgReconciler) upsertTeam(ctx context.Context, team *hyperv1.Team, orgName string) error {
 	logger := log.FromContext(ctx)
-	teams, _, err := gClient.SearchOrgTeams(orgName, &g.SearchTeamsOptions{})
+	teams, _, err := r.h.SearchOrgTeams(orgName, &g.SearchTeamsOptions{})
 	if err != nil {
 		return err
 	}
@@ -249,17 +249,17 @@ func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgN
 		g.RepoUnitActions,
 	}
 	if matched {
-		fetched, res, err := gClient.GetTeam(id)
+		fetched, res, err := r.h.GetTeam(id)
 		if err != nil && res.StatusCode != 404 {
 			return err
 		}
 		want := &g.Team{}
 		if res.StatusCode == 200 {
-			if err := reconcileMembers(ctx, gClient, team, id); err != nil {
+			if err := r.reconcileMembers(ctx, team, id); err != nil {
 				return err
 			}
 			if !compareTeams(want, fetched) {
-				if _, err := gClient.EditTeam(fetched.ID, g.EditTeamOption{
+				if _, err := r.h.EditTeam(fetched.ID, g.EditTeamOption{
 					Description:             &team.Description,
 					CanCreateOrgRepo:        &team.CreateOrgRepo,
 					IncludesAllRepositories: &team.IncludeAllRepos,
@@ -274,7 +274,7 @@ func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgN
 			return nil
 		}
 	}
-	t, _, err := gClient.CreateTeam(orgName, g.CreateTeamOption{
+	t, _, err := r.h.CreateTeam(orgName, g.CreateTeamOption{
 		Name:                    team.Name,
 		Description:             team.Description,
 		CanCreateOrgRepo:        team.CreateOrgRepo,
@@ -286,12 +286,12 @@ func upsertTeam(ctx context.Context, gClient *g.Client, team *hyperv1.Team, orgN
 		logger.Error(err, "failed to create team", "team", team.Name)
 		return err
 	}
-	return reconcileMembers(ctx, gClient, team, t.ID)
+	return r.reconcileMembers(ctx, team, t.ID)
 }
 
-func reconcileMembers(ctx context.Context, gClient *g.Client, team *hyperv1.Team, id int64) error {
+func (r *OrgReconciler) reconcileMembers(ctx context.Context, team *hyperv1.Team, id int64) error {
 	logger := log.FromContext(ctx)
-	users, _, err := gClient.ListTeamMembers(id, g.ListTeamMembersOptions{})
+	users, _, err := r.h.ListTeamMembers(id, g.ListTeamMembersOptions{})
 	if err != nil {
 		return err
 	}
@@ -321,60 +321,20 @@ func reconcileMembers(ctx context.Context, gClient *g.Client, team *hyperv1.Team
 		}
 	}
 	for _, u := range add {
-		if _, err := gClient.AddTeamMember(id, u); err != nil {
+		if _, err := r.h.AddTeamMember(id, u); err != nil {
 			logger.Error(err, "failed to add team member", "user", u, "team", team.Name)
 		}
 	}
 	for _, d := range del {
-		if _, err := gClient.RemoveTeamMember(id, d); err != nil {
+		if _, err := r.h.RemoveTeamMember(id, d); err != nil {
 			logger.Error(err, "failed to delete team member", "user", d, "team", team.Name)
 		}
 	}
 	return nil
 }
 
-func (r *OrgReconciler) buildClient(ctx context.Context, instance hyperv1.InstanceType, ns string) (*g.Client, *hyperv1.Gitea, error) {
-	logger := log.FromContext(ctx)
-
-	name := instance.Name
-	namespace := instance.Namespace
-	if namespace == "" {
-		namespace = ns
-	}
-	git := &hyperv1.Gitea{}
-	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, git); err != nil {
-		logger.Error(err, "failed to get gitea")
-		return nil, nil, err
-	}
-	if !git.Status.Ready {
-		return nil, nil, nil
-	}
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      git.Name + "-admin",
-			Namespace: git.Namespace,
-		},
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: git.Name + "-admin", Namespace: git.Namespace}, secret); err != nil {
-		logger.Error(err, "failed getting admin secret "+git.Name+"-admin ")
-		return nil, nil, err
-	}
-	url := "http://" + git.Name + "." + git.Namespace + ".svc"
-	gClient, err := g.NewClient(url, g.SetContext(ctx), g.SetToken(string(secret.Data["token"])))
-	if err != nil {
-		logger.Error(err, "failed to create client for "+url)
-		return nil, nil, err
-	}
-	_, _, err = gClient.ServerVersion()
-	if err != nil {
-		logger.Error(err, "failed to get server version "+url)
-		return nil, nil, err
-	}
-	return gClient, git, nil
-}
-
-func (r *OrgReconciler) deleteOrg(gClient *g.Client, org *hyperv1.Org) error {
-	_, err := gClient.DeleteOrg(org.Name)
+func (r *OrgReconciler) deleteOrg(org *hyperv1.Org) error {
+	_, err := r.h.DeleteOrg(org.Name)
 	return err
 }
 
