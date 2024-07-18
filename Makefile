@@ -157,7 +157,7 @@ minikube: ## Spool up a local minikube cluster for development
 tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 	$Q$(MINIKUBE) tunnel -p north
 
-port-forward: ## turn on a port to push locally built containers into the cluster
+proxy: ## turn on a port to push locally built containers into the cluster
 	$Q$(KUBECTL) port-forward --namespace kube-system service/registry 5000:80
 
 
