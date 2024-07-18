@@ -45,7 +45,7 @@ type GiteaSpec struct {
 	Prometheus bool `json:"prometheus,omitempty"`
 
 	// Override the operator set image
-	// +kubebuilder:default:="gitea/gitea:1.22.0"
+	// +kubebuilder:default:="gitea/gitea:1.22.1"
 	Image string `json:"image,omitempty"`
 }
 
