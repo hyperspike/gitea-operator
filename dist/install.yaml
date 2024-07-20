@@ -70,7 +70,7 @@ spec:
                 description: Create a loadbalancer for ssh access
                 type: boolean
               image:
-                default: gitea/gitea:1.22.0
+                default: gitea/gitea:1.22.1
                 description: Override the operator set image
                 type: string
               ingress:
@@ -1242,7 +1242,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: localhost:5000/controller:latest
+        image: ghcr.io/hyperspike/gitea-operator:v0.0.3
         livenessProbe:
           httpGet:
             path: /healthz
