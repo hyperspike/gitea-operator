@@ -46,7 +46,7 @@ data:
     #  - 192.168.39.0/24
 ---
 " > .cni-$name.yaml
-	helm template cilium cilium --version ${CILIUM_VERSION} --namespace kube-system \
+	helm template cilium cilium --validate --version ${CILIUM_VERSION} --namespace kube-system \
 		--set cluster.name=$name \
 		--set cluster.id=$clusterid \
 		--set externalIPs.enabled=true \
@@ -59,7 +59,7 @@ data:
 		--set autoDirectNodeRoutes=true \
 		--set operator.replicas=1 \
 		--set socketLB.enabled=true \
-		--set kubeProxyReplacement=strict \
+		--set kubeProxyReplacement=true \
 		--set k8sServiceHost=$(minikube ip -p $name) \
 		--set hubble.relay.enabled=true \
 		--set hubble.peerService.clusterDomain=cluster.$name \
