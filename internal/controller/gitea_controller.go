@@ -1431,6 +1431,7 @@ func (r *GiteaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&zalandov1.Postgresql{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&netv1.Ingress{}).
+		Owns(&valkeyv1.Valkey{}).
 		For(&hyperv1.Gitea{}).
 		Complete(r)
 }
