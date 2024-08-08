@@ -81,6 +81,15 @@ rules:
   resources:
   - gitea
   verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - gitea
+  - valkey
+  verbs:
   - create
   - delete
   - get

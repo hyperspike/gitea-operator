@@ -79,7 +79,7 @@ type GiteaReconciler struct {
 	Scheme   *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=hyperspike.io,resources=gitea,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=hyperspike.io,resources=gitea;valkey,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;services,verbs=create;delete;get;list;watch;update
@@ -286,23 +286,21 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	if hostname == "" {
 		hostname = "git.example.com"
 	}
+	password, err := r.getValkeyPassword(ctx, gitea)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-inline-config", map[string]string{
 		"_generals_": "",
-		/*
-				"cache": `ADAPTER=redis
-		HOST=redis+cluster://:@gitea-redis-cluster-headless.default.svc.cluster.local:6379/0?pool_size=100&idle_timeout=180s&`, */
-		"cache": `ADAPTER=memory`,
+		"cache":      cacheSvc(gitea, password),
 		/* "database": `DB_TYPE=postgres
 		HOST=gitea-postgresql-ha-pgpool.default.svc.cluster.local:5432
 		NAME=gitea
 		PASSWD=gitea
 		USER=gitea`, */
-		"indexer": "ISSUE_INDEXER_TYPE=db",
-		"metrics": "ENABLED=false",
-		/*
-				"queue": `CONN_STR=redis+cluster://:@gitea-redis-cluster-headless.default.svc.cluster.local:6379/0?pool_size=100&idle_timeout=180s&
-		TYPE=redis`,*/
-		"queue":      `TYPE=level`,
+		"indexer":    "ISSUE_INDEXER_TYPE=db",
+		"metrics":    "ENABLED=false",
+		"queue":      queueSvc(gitea, password),
 		"repository": "ROOT=/data/git/gitea-repositories",
 		"security":   "INSTALL_LOCK=true",
 		"server": `APP_DATA_PATH=/data
@@ -315,10 +313,7 @@ SSH_DOMAIN=` + hostname + `
 SSH_LISTEN_PORT=2222
 SSH_PORT=22
 START_SSH_SERVER=true`,
-		"session": `PROVIDER=db`,
-		/*
-				"session": `PROVIDER=redis
-		PROVIDER_CONFIG=redis+cluster://:@gitea-redis-cluster-headless.default.svc.cluster.local:6379/0?pool_size=100&idle_timeout=180s&`,*/
+		"session": sessionSvc(gitea, password),
 	}, false); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -728,6 +723,53 @@ func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Git
 		return err
 	}
 	return nil
+}
+
+func cacheSvc(gitea *hyperv1.Gitea, password string) string {
+	cache := "ADAPTER=memory"
+	if gitea.Spec.Valkey {
+		cache = `ADAPTER=redis
+HOST=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+	}
+	return cache
+}
+
+func sessionSvc(gitea *hyperv1.Gitea, password string) string {
+	session := "PROVIDER=db"
+	if gitea.Spec.Valkey {
+		session = `PROVIDER=redis
+PROVIDER_CONFIG=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+	}
+	return session
+}
+
+func queueSvc(gitea *hyperv1.Gitea, password string) string {
+	queue := "TYPE=level"
+	if gitea.Spec.Valkey {
+		queue = `TYPE=redis
+CONN_STR=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+	}
+	return queue
+}
+
+func (r *GiteaReconciler) getValkeyPassword(ctx context.Context, gitea *hyperv1.Gitea) (string, error) {
+	if !gitea.Spec.Valkey {
+		return "", nil
+	}
+	vk := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-valkey",
+			Namespace: gitea.Namespace,
+		},
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-valkey", Namespace: gitea.Namespace}, vk); err != nil {
+		return "", err
+	}
+	_, ok := vk.Data["password"]
+	if !ok {
+		return "", fmt.Errorf("password not found")
+	}
+	return string(vk.Data["password"]), nil
 }
 
 func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gitea) error {

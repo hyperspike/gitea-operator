@@ -89,6 +89,10 @@ spec:
               sshHostname:
                 description: if different from Hostname
                 type: string
+              vault:
+                default: false
+                description: Use Valkey
+                type: boolean
             type: object
           status:
             description: GiteaStatus defines the observed state of Gitea
