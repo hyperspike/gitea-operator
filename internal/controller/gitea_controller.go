@@ -138,7 +138,7 @@ func (r *GiteaReconciler) setCondition(ctx context.Context, gitea *hyperv1.Gitea
 	return nil
 }
 
-//nolint:unparam
+//nolint:unparam,gocyclo
 func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Gitea) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	if err := r.upsertPG(ctx, gitea); err != nil {
