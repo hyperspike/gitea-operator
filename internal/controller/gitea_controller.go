@@ -46,6 +46,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -489,6 +490,9 @@ START_SSH_SERVER=true`,
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertGiteaSts(ctx, gitea); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.upsertPDB(ctx, gitea); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertGiteaIngress(ctx, gitea); err != nil {
@@ -1104,6 +1108,40 @@ type tokenResponse struct {
 	Name   string   `json:"name"`
 	Scopes []string `json:"scopes"`
 	Token  string   `json:"sha1"`
+}
+
+func (r *GiteaReconciler) upsertPDB(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+	pdb := &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name,
+			Namespace: gitea.Namespace,
+			Labels:    labels(gitea.Name),
+		},
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels(gitea.Name),
+			},
+			MaxUnavailable: func(i int32) *intstr.IntOrString {
+				return &intstr.IntOrString{IntVal: i}
+			}(1),
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, pdb, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, pdb)
+	if err != nil && errors.IsNotFound(err) {
+		r.Recorder.Event(gitea, "Normal", "Creating",
+			fmt.Sprintf("PDB %s is being created", gitea.Name))
+		if err := r.Create(ctx, pdb); err != nil {
+			logger.Error(err, "failed to create pdb")
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
 }
 
 func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Gitea) error {
