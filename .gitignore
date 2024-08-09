@@ -5,7 +5,7 @@
 *.so
 *.dylib
 bin/*
-manager
+/manager
 gitea/
 gitea.yaml
 Dockerfile.cross
