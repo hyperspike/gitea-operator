@@ -9,7 +9,7 @@ spec:
   prometheus: true
   prometheusLabels:
     prometheus: prometheus
-  valkey: false
+  valkey: true
   ingress:
     host: git.local
 ---
