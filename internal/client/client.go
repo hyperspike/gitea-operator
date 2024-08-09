@@ -27,8 +27,11 @@ func BuildFromOrg(ctx context.Context, r rclient.Client, instance *hyperv1.OrgRe
 	}
 	org := &hyperv1.Org{}
 	if err := r.Get(ctx, types.NamespacedName{Name: orgName, Namespace: orgNamespace}, org); err != nil {
-		logger.Error(err, "failed to get gitea")
+		logger.Error(err, "failed to get gitea org "+orgName)
 		return nil, nil, err
+	}
+	if org.Spec.Instance.Namespace == "" {
+		org.Spec.Instance.Namespace = org.Namespace
 	}
 	return Build(ctx, r, &org.Spec.Instance, "")
 }
@@ -43,7 +46,7 @@ func Build(ctx context.Context, r rclient.Client, instance *hyperv1.InstanceType
 	}
 	git := &hyperv1.Gitea{}
 	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, git); err != nil {
-		logger.Error(err, "failed to get gitea")
+		logger.Error(err, "failed to get gitea instance "+name+" in namespace "+namespace)
 		return nil, nil, err
 	}
 	if !git.Status.Ready {

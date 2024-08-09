@@ -3,11 +3,20 @@
 export CILIUM_CLI_MODE=classic
 export SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-bootcluster() {
+export CILIUM_CLI_MODE=classic
+export SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+
+bootcluster_linux() {
 	name=$1
 	clusterid=$2
 	podcidr=$3
 	servicecidr=$4
+
+	helm repo add cilium https://helm.cilium.io/ || true
+	helm repo update cilium
+	helm pull cilium/cilium --untar
+
 	echo "---
 kind: ConfigMap
 apiVersion: v1
@@ -17,7 +26,7 @@ metadata:
 data:
   description: This CM intentioanlly left blank to fake out minikube/kubeadm
 " > blank.yaml
-	minikube start --memory 4G --container-runtime=cri-o \
+	minikube start --memory 4g --container-runtime=cri-o \
 		--kubernetes-version=v${K8S_VERSION} \
 		--extra-config kubeadm.pod-network-cidr=$podcidr \
 		--service-cluster-ip-range $servicecidr \
@@ -100,10 +109,28 @@ data:
 	minikube kubectl  -p $name --  apply -f .cni-$name.yaml
 	minikube node add -p $name
 	minikube node add -p $name
-	sleep 15 #@TODO build a watch loop 
+	# sleep 15 #@TODO build a watch loop
+}
+
+bootcluster_macos() {
+	name=$1
+	clusterid=$2
+	podcidr=$3
+	servicecidr=$4
+
+	minikube start --memory 4g --container-runtime=cri-o \
+		--kubernetes-version=v${K8S_VERSION} \
+		--extra-config kubeadm.pod-network-cidr=$podcidr \
+		--service-cluster-ip-range $servicecidr \
+		--network north-south \
+		--subnet 10.59.0.0/16 \
+		--host-only-cidr 10.59.0.0/16 \
+		--dns-domain cluster.$name --cni=cilium --profile=$name
+}
+
+addons() {
 	kubectl delete pod -l k8s-app=kube-dns -n kube-system
 	minikube addons enable registry -p north
-	# use the addon, but through a tunnel
 	minikube addons enable ingress  -p north
 	kubectl get svc -n ingress-nginx ingress-nginx-controller  -o yaml > .ingress.yaml
 	sed -i'' -e 's/NodePort/LoadBalancer/' -e '/allocateNode/d' .ingress.yaml
@@ -115,10 +142,30 @@ data:
 	sed -i'' -e 's/\(replicas:\).*/\1\ 2/' .coredns.yaml
 	kubectl apply -f .coredns.yaml
 	kubectl apply -f $SCRIPT_DIR/postgres-operator.yaml
+	if [ ! -z ${VALKEY} ]; then
+		kubectl apply -f https://raw.githubusercontent.com/hyperspike/valkey-operator/main/dist/install.yaml
+	fi
+	if [ ! -z ${TLS} ]; then
+		LATEST=$(curl -s curl https://api.github.com/repos/cert-manager/cert-manager/releases/latest  | jq -cr .tag_name)
+		kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${LATEST}/cert-manager.yaml
+		kubectl apply -f $SCRIPT_DIR/issuer.yaml
+	fi
+	if [ ! -z ${PROMETHEUS} ]; then
+		LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
+		curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
+		kubectl apply -f $SCRIPT_DIR/prometheus.yaml
+	fi
 }
 
-helm repo add cilium https://helm.cilium.io/ || true
-helm repo update cilium
-helm pull cilium/cilium --untar
+OS=$(uname)
 
-bootcluster north 1 10.60.0.0/16 10.96.0.0/16
+if [ "$OS" = "Darwin" ]; then
+	bootcluster_macos north 1 10.60.0.0/16 10.96.0.0/16
+elif [ "$OS" = "Linux" ]; then
+	bootcluster_linux north 1 10.60.0.0/16 10.96.0.0/16
+else
+	echo "Unsupported OS"
+	exit 1
+fi
+
+addons

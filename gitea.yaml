@@ -6,7 +6,10 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: gitea
 spec:
-  valkey: true
+  prometheus: true
+  prometheusLabels:
+    prometheus: prometheus
+  valkey: false
   ingress:
     host: git.local
 ---
@@ -57,6 +60,18 @@ metadata:
     app.kubernetes.io/name: gitea-operator
     app.kubernetes.io/managed-by: kustomize
   name: repo-sample
+spec:
+  private: true
+  org:
+    name: test
+---
+apiVersion: hyperspike.io/v1
+kind: Repo
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: two
 spec:
   private: true
   org:

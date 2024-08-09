@@ -90,6 +90,11 @@ spec:
                 default: false
                 description: enable prometheus integrations
                 type: boolean
+              prometheusLabels:
+                additionalProperties:
+                  type: string
+                description: Additional Prometheus Labels
+                type: object
               rootless:
                 default: false
                 description: enable rootless mode, disable for minikube
@@ -978,6 +983,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
@@ -986,6 +1003,18 @@ rules:
   - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io

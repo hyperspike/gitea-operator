@@ -152,7 +152,12 @@ endif
 
 .PHONY: minikube tunnel proxy
 minikube: ## Spool up a local minikube cluster for development
-	$QK8S_VERSION=$(K8S_VERSION) CILIUM_VERSION=$(CILIUM_VERSION) scripts/minikube.sh
+	$QK8S_VERSION=$(K8S_VERSION) \
+		CILIUM_VERSION=$(CILIUM_VERSION) \
+		TLS=$(TLS) \
+		PROMETHEUS=$(PROMETHEUS) \
+		VALKEY=$(VALKEY) \
+		scripts/minikube.sh
 
 tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 	$Q$(MINIKUBE) tunnel -p north
