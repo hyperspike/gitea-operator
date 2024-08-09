@@ -5,9 +5,9 @@
 *.so
 *.dylib
 bin/*
-manager
+/manager
 gitea/
-gitea.yaml
+# gitea.yaml - CR example file
 Dockerfile.cross
 
 # Test binary, built with `go test -c`

@@ -47,6 +47,10 @@ type GiteaSpec struct {
 	// Override the operator set image
 	// +kubebuilder:default:="gitea/gitea:1.22.1"
 	Image string `json:"image,omitempty"`
+
+	// Use Valkey
+	// +kubebuilder:default:=false
+	Valkey bool `json:"valkey,omitempty"`
 }
 
 type IngressSpec struct {

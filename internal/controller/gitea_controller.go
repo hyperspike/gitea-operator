@@ -42,6 +42,7 @@ import (
 
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
 	hyperv1 "hyperspike.io/gitea-operator/api/v1"
+	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -79,6 +80,7 @@ type GiteaReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=hyperspike.io,resources=valkeys,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;services,verbs=create;delete;get;list;watch;update
@@ -142,19 +144,35 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 		if err := r.setCondition(ctx, gitea, "DatabaseReady", "False", "DatabaseReady", "database still provisioning"); err != nil {
 			return ctrl.Result{}, err
 		}
+		if err := r.setCondition(ctx, gitea, "CacheReady", "False", "CacheReady", "valkey still provisioning"); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	up, _ := r.pgRunning(ctx, gitea)
-	if !up {
+	pgUp, _ := r.pgRunning(ctx, gitea)
+	if !pgUp {
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+	}
+	if err := r.upsertValkey(ctx, gitea); err != nil {
+		return ctrl.Result{}, err
+	}
+	vkUp, _ := r.valkeyRunning(ctx, gitea)
+	if !vkUp {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 	if !gitea.Status.Ready {
 		if err := r.setCondition(ctx, gitea, "DatabaseReady", "True", "DatabaseReady", "database ready"); err != nil {
 			return ctrl.Result{}, err
 		}
+		if err := r.setCondition(ctx, gitea, "CacheReady", "True", "CacheReady", "valkey ready"); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	r.Recorder.Event(gitea, "Normal", "Running",
 		fmt.Sprintf("Postgres %s is running",
 			gitea.Name+"-"+gitea.Name))
+	r.Recorder.Event(gitea, "Normal", "Running",
+		fmt.Sprintf("Valkey %s is running",
+			gitea.Name+"-valkey"))
 
 	if err := r.upsertGiteaSvc(ctx, gitea); err != nil {
 		return ctrl.Result{}, err
@@ -272,23 +290,21 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	if hostname == "" {
 		hostname = "git.example.com"
 	}
+	password, err := r.getValkeyPassword(ctx, gitea)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-inline-config", map[string]string{
 		"_generals_": "",
-		/*
-				"cache": `ADAPTER=redis
-		HOST=redis+cluster://:@gitea-redis-cluster-headless.default.svc.cluster.local:6379/0?pool_size=100&idle_timeout=180s&`, */
-		"cache": `ADAPTER=memory`,
+		"cache":      cacheSvc(gitea, password),
 		/* "database": `DB_TYPE=postgres
 		HOST=gitea-postgresql-ha-pgpool.default.svc.cluster.local:5432
 		NAME=gitea
 		PASSWD=gitea
 		USER=gitea`, */
-		"indexer": "ISSUE_INDEXER_TYPE=db",
-		"metrics": "ENABLED=false",
-		/*
-				"queue": `CONN_STR=redis+cluster://:@gitea-redis-cluster-headless.default.svc.cluster.local:6379/0?pool_size=100&idle_timeout=180s&
-		TYPE=redis`,*/
-		"queue":      `TYPE=level`,
+		"indexer":    "ISSUE_INDEXER_TYPE=db",
+		"metrics":    "ENABLED=false",
+		"queue":      queueSvc(gitea, password),
 		"repository": "ROOT=/data/git/gitea-repositories",
 		"security":   "INSTALL_LOCK=true",
 		"server": `APP_DATA_PATH=/data
@@ -301,10 +317,7 @@ SSH_DOMAIN=` + hostname + `
 SSH_LISTEN_PORT=2222
 SSH_PORT=22
 START_SSH_SERVER=true`,
-		"session": `PROVIDER=db`,
-		/*
-				"session": `PROVIDER=redis
-		PROVIDER_CONFIG=redis+cluster://:@gitea-redis-cluster-headless.default.svc.cluster.local:6379/0?pool_size=100&idle_timeout=180s&`,*/
+		"session": sessionSvc(gitea, password),
 	}, false); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -482,7 +495,7 @@ START_SSH_SERVER=true`,
 		return ctrl.Result{}, err
 	}
 
-	up, _ = r.podUP(ctx, gitea)
+	up, _ := r.podUP(ctx, gitea)
 	if !up {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
@@ -507,6 +520,7 @@ func labels(name string) map[string]string {
 	}
 }
 
+// upsertPG - Create or update a postgres cluster {{{
 func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
 	crb := &rbacv1.ClusterRoleBinding{
@@ -595,6 +609,9 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 	return nil
 }
 
+// }}}
+
+// pgRunning - check the postgres CR for state {{{
 func (r *GiteaReconciler) pgRunning(ctx context.Context, gitea *hyperv1.Gitea) (bool, error) {
 	l := labels(gitea.Name)
 	l["app.kubernetes.io/component"] = "database"
@@ -613,6 +630,65 @@ func (r *GiteaReconciler) pgRunning(ctx context.Context, gitea *hyperv1.Gitea) (
 	}
 	return false, nil
 }
+
+// }}}
+
+// upsertValkey - Create or update a valkey cluster {{{
+func (r *GiteaReconciler) upsertValkey(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = "cache"
+	vk := &valkeyv1.Valkey{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-valkey",
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+		Spec: valkeyv1.ValkeySpec{
+			Nodes:             3,
+			VolumePermissions: true,
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, vk, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-valkey", Namespace: gitea.Namespace}, vk)
+	if err != nil && errors.IsNotFound(err) {
+		r.Recorder.Event(gitea, "Normal", "Creating",
+			fmt.Sprintf("Valkey %s is being created", gitea.Name+"-valkey"))
+		if err := r.Create(ctx, vk); err != nil {
+			logger.Error(err, "failed to create valkey")
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
+// }}}
+
+// valkeyRunning - check the valkey CR for state {{{
+func (r *GiteaReconciler) valkeyRunning(ctx context.Context, gitea *hyperv1.Gitea) (bool, error) {
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = "cache"
+	vk := &valkeyv1.Valkey{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-valkey",
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-valkey", Namespace: gitea.Namespace}, vk); err != nil {
+		return false, err
+	}
+	if vk.Status.Ready {
+		return true, nil
+	}
+	return false, nil
+}
+
+// }}}
 
 func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
@@ -651,6 +727,53 @@ func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Git
 		return err
 	}
 	return nil
+}
+
+func cacheSvc(gitea *hyperv1.Gitea, password string) string {
+	cache := "ADAPTER=memory"
+	if gitea.Spec.Valkey {
+		cache = `ADAPTER=redis
+HOST=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+	}
+	return cache
+}
+
+func sessionSvc(gitea *hyperv1.Gitea, password string) string {
+	session := "PROVIDER=db"
+	if gitea.Spec.Valkey {
+		session = `PROVIDER=redis
+PROVIDER_CONFIG=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+	}
+	return session
+}
+
+func queueSvc(gitea *hyperv1.Gitea, password string) string {
+	queue := "TYPE=level"
+	if gitea.Spec.Valkey {
+		queue = `TYPE=redis
+CONN_STR=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+	}
+	return queue
+}
+
+func (r *GiteaReconciler) getValkeyPassword(ctx context.Context, gitea *hyperv1.Gitea) (string, error) {
+	if !gitea.Spec.Valkey {
+		return "", nil
+	}
+	vk := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-valkey",
+			Namespace: gitea.Namespace,
+		},
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-valkey", Namespace: gitea.Namespace}, vk); err != nil {
+		return "", err
+	}
+	_, ok := vk.Data["password"]
+	if !ok {
+		return "", fmt.Errorf("password not found")
+	}
+	return string(vk.Data["password"]), nil
 }
 
 func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gitea) error {
@@ -1312,6 +1435,7 @@ func (r *GiteaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&zalandov1.Postgresql{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&netv1.Ingress{}).
+		Owns(&valkeyv1.Valkey{}).
 		For(&hyperv1.Gitea{}).
 		Complete(r)
 }

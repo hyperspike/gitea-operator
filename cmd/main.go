@@ -39,6 +39,7 @@ import (
 
 	hyperspikeiov1 "hyperspike.io/gitea-operator/api/v1"
 	"hyperspike.io/gitea-operator/internal/controller"
+	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,6 +53,7 @@ func init() {
 
 	utilruntime.Must(zalandov1.AddToScheme(scheme))
 	utilruntime.Must(hyperspikeiov1.AddToScheme(scheme))
+	utilruntime.Must(valkeyv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
