@@ -4,6 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: gitea-operator
     app.kubernetes.io/managed-by: kustomize
-  name: gitea-sample
+  name: gitea
 spec:
+  valkey: true
   # TODO(user): Add fields here

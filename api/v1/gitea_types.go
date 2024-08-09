@@ -50,7 +50,7 @@ type GiteaSpec struct {
 
 	// Use Valkey
 	// +kubebuilder:default:=false
-	Valkey bool `json:"vault,omitempty"`
+	Valkey bool `json:"valkey,omitempty"`
 }
 
 type IngressSpec struct {

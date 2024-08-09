@@ -89,7 +89,7 @@ spec:
               sshHostname:
                 description: if different from Hostname
                 type: string
-              vault:
+              valkey:
                 default: false
                 description: Use Valkey
                 type: boolean
