@@ -82,6 +82,11 @@ spec:
                 default: false
                 description: enable prometheus integrations
                 type: boolean
+              prometheusLabels:
+                additionalProperties:
+                  type: string
+                description: Additional Prometheus Labels
+                type: object
               rootless:
                 default: false
                 description: enable rootless mode, disable for minikube

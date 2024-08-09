@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
 	hyperv1 "hyperspike.io/gitea-operator/api/v1"
 	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
@@ -92,6 +93,8 @@ type GiteaReconciler struct {
 // +kubebuilder:rbac:groups=acid.zalan.do,resources=postgresqls,verbs=create;delete;get;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=create;delete;get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -141,40 +144,64 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 	if err := r.upsertPG(ctx, gitea); err != nil {
 		return ctrl.Result{}, err
 	}
+	if gitea.Spec.Prometheus {
+		if err := r.upsertServiceMonitorPG(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.upsertMetricsServicePG(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	if !gitea.Status.Ready {
 		if err := r.setCondition(ctx, gitea, "DatabaseReady", "False", "DatabaseReady", "database still provisioning"); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.setCondition(ctx, gitea, "CacheReady", "False", "CacheReady", "valkey still provisioning"); err != nil {
-			return ctrl.Result{}, err
+		if gitea.Spec.Valkey {
+			if err := r.setCondition(ctx, gitea, "CacheReady", "False", "CacheReady", "valkey still provisioning"); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 	pgUp, _ := r.pgRunning(ctx, gitea)
 	if !pgUp {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
-	if err := r.upsertValkey(ctx, gitea); err != nil {
-		return ctrl.Result{}, err
-	}
-	vkUp, _ := r.valkeyRunning(ctx, gitea)
-	if !vkUp {
-		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+	if gitea.Spec.Valkey {
+		if err := r.upsertValkey(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
+		vkUp, _ := r.valkeyRunning(ctx, gitea)
+		if !vkUp {
+			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+		}
 	}
 	if !gitea.Status.Ready {
 		if err := r.setCondition(ctx, gitea, "DatabaseReady", "True", "DatabaseReady", "database ready"); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.setCondition(ctx, gitea, "CacheReady", "True", "CacheReady", "valkey ready"); err != nil {
-			return ctrl.Result{}, err
+		if gitea.Spec.Valkey {
+			if err := r.setCondition(ctx, gitea, "CacheReady", "True", "CacheReady", "valkey ready"); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 	r.Recorder.Event(gitea, "Normal", "Running",
 		fmt.Sprintf("Postgres %s is running",
 			gitea.Name+"-"+gitea.Name))
-	r.Recorder.Event(gitea, "Normal", "Running",
-		fmt.Sprintf("Valkey %s is running",
-			gitea.Name+"-valkey"))
+	if gitea.Spec.Valkey {
+		r.Recorder.Event(gitea, "Normal", "Running",
+			fmt.Sprintf("Valkey %s is running",
+				gitea.Name+"-valkey"))
+	}
 
+	if gitea.Spec.Prometheus {
+		if err := r.upsertServiceMonitor(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.upsertMetricsService(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	if err := r.upsertGiteaSvc(ctx, gitea); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -304,7 +331,7 @@ echo '==== END GITEA CONFIGURATION ===='`,
 		PASSWD=gitea
 		USER=gitea`, */
 		"indexer":    "ISSUE_INDEXER_TYPE=db",
-		"metrics":    "ENABLED=false",
+		"metrics":    metricsSvc(gitea),
 		"queue":      queueSvc(gitea, password),
 		"repository": "ROOT=/data/git/gitea-repositories",
 		"security":   "INSTALL_LOCK=true",
@@ -596,6 +623,50 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 			},
 		},
 	}
+	if gitea.Spec.Prometheus {
+		pg.Spec.Sidecars = []zalandov1.Sidecar{
+			{
+				Name:        "exporter",
+				DockerImage: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
+				Ports: []corev1.ContainerPort{
+					{
+						Name:          "metrics",
+						ContainerPort: 9187,
+						Protocol:      corev1.ProtocolTCP,
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "DATA_SOURCE_URI",
+						Value: "localhost:5432/postgres?sslmode=disable",
+					},
+					{
+						Name: "DATA_SOURCE_USER",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								Key: "username",
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "postgres." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
+								},
+							},
+						},
+					},
+					{
+						Name: "DATA_SOURCE_PASS",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								Key: "password",
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "postgres." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
 	if err := controllerutil.SetControllerReference(gitea, pg, r.Scheme); err != nil {
 		return err
 	}
@@ -651,6 +722,8 @@ func (r *GiteaReconciler) upsertValkey(ctx context.Context, gitea *hyperv1.Gitea
 		Spec: valkeyv1.ValkeySpec{
 			Nodes:             3,
 			VolumePermissions: true,
+			Prometheus:        gitea.Spec.Prometheus,
+			PrometheusLabels:  gitea.Spec.PrometheusLabels,
 		},
 	}
 	if err := controllerutil.SetControllerReference(gitea, vk, r.Scheme); err != nil {
@@ -760,6 +833,16 @@ CONN_STR=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.N
 	return queue
 }
 
+func metricsSvc(gitea *hyperv1.Gitea) string {
+	metrics := "ENABLED=false"
+	if gitea.Spec.Prometheus {
+		metrics = `ENABLED=true
+ENABLE_ISSUE_BY_REPOSITORY=true
+ENABLE_ISSUE_BY_LABEL=true`
+	}
+	return metrics
+}
+
 func (r *GiteaReconciler) getValkeyPassword(ctx context.Context, gitea *hyperv1.Gitea) (string, error) {
 	if !gitea.Spec.Valkey {
 		return "", nil
@@ -800,6 +883,192 @@ func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gite
 			logger.Error(err, "failed to create serviceaccount")
 			return err
 		}
+	} else {
+		return err
+	}
+	return nil
+}
+
+const (
+	Metrics = "metrics"
+)
+
+func (r *GiteaReconciler) upsertServiceMonitor(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+
+	labelSelector := labels(gitea.Name)
+	labelSelector["app.kubernetes.io/component"] = Metrics
+	labelSelector["app.kubernetes.io/app"] = "gitea"
+
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = Metrics
+	for k, v := range gitea.Spec.PrometheusLabels {
+		l[k] = v
+	}
+
+	sm := &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name,
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: labelSelector,
+			},
+			Endpoints: []monitoringv1.Endpoint{
+				{
+					Port: Metrics,
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, sm, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, sm)
+	if err != nil && errors.IsNotFound(err) {
+		if err := r.Create(ctx, sm); err != nil {
+			logger.Error(err, "failed to create servicemonitor")
+			return err
+		}
+		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("ServiceMonitor %s is created", gitea.Name))
+	} else {
+		return err
+	}
+	return nil
+}
+
+func (r *GiteaReconciler) upsertMetricsService(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = Metrics
+	l["app.kubernetes.io/app"] = "gitea"
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-metrics",
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: "None",
+			Selector:  labels(gitea.Name),
+			Ports: []corev1.ServicePort{
+				{
+					Name:       Metrics,
+					Port:       80,
+					TargetPort: intstr.FromString("http"),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, svc, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-metrics", Namespace: gitea.Namespace}, svc)
+	if err != nil && errors.IsNotFound(err) {
+		if err := r.Create(ctx, svc); err != nil {
+			logger.Error(err, "failed to create metrics service")
+			return err
+		}
+		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("Metrics Service %s is created", gitea.Name))
+	} else {
+		return err
+	}
+	return nil
+}
+
+func (r *GiteaReconciler) upsertServiceMonitorPG(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+
+	labelSelector := map[string]string{}
+	labelSelector["app.kubernetes.io/component"] = Metrics
+	labelSelector["app.kubernetes.io/app"] = "postgres"
+
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = Metrics
+	for k, v := range gitea.Spec.PrometheusLabels {
+		l[k] = v
+	}
+
+	sm := &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-db",
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: labelSelector,
+			},
+			Endpoints: []monitoringv1.Endpoint{
+				{
+					Port: Metrics,
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, sm, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-db", Namespace: gitea.Namespace}, sm)
+	if err != nil && errors.IsNotFound(err) {
+		if err := r.Create(ctx, sm); err != nil {
+			logger.Error(err, "failed to create servicemonitor")
+			return err
+		}
+		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("ServiceMonitor %s is created", gitea.Name))
+	} else {
+		return err
+	}
+	return nil
+}
+
+func (r *GiteaReconciler) upsertMetricsServicePG(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = Metrics
+	l["app.kubernetes.io/app"] = "postgres"
+
+	dbLabels := map[string]string{
+		"application": "spilo",
+		"team":        gitea.Name,
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-db-metrics",
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: "None",
+			Selector:  dbLabels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       Metrics,
+					Port:       80,
+					TargetPort: intstr.FromString("metrics"),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, svc, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-db-metrics", Namespace: gitea.Namespace}, svc)
+	if err != nil && errors.IsNotFound(err) {
+		if err := r.Create(ctx, svc); err != nil {
+			logger.Error(err, "failed to create metrics service")
+			return err
+		}
+		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("Metrics Service %s is created", gitea.Name))
 	} else {
 		return err
 	}
@@ -1015,6 +1284,7 @@ func (r *GiteaReconciler) apiUP(ctx context.Context, gitea *hyperv1.Gitea) bool 
 	logger := log.FromContext(ctx)
 	_, err := http.Get("http://" + gitea.Name + "." + gitea.Namespace + ".svc")
 	if err != nil {
+		logger.Error(err, "failed to get http://"+gitea.Name+"."+gitea.Namespace+".svc")
 		if err := r.setCondition(ctx, gitea, "Ready", "False", "Ready", "Api Down"); err != nil {
 			logger.Error(err, "Gitea status update failed.")
 			return false
