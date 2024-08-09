@@ -10,7 +10,7 @@ require (
 	github.com/onsi/gomega v1.34.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.75.2
 	github.com/zalando/postgres-operator v1.12.2
-	hyperspike.io/valkey-operator v0.0.10
+	hyperspike.io/valkey-operator v0.0.11
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.3
