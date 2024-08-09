@@ -1,0 +1,63 @@
+apiVersion: hyperspike.io/v1
+kind: Gitea
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gitea
+spec:
+  valkey: true
+  ingress:
+    host: git.local
+---
+apiVersion: hyperspike.io/v1
+kind: User
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: demo
+spec:
+  email: demo@git.local
+  password:
+    name: demo-password
+    key: password
+  instance:
+    name: gitea
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-password
+type: Opaque
+stringData:
+  password: test1234
+---
+apiVersion: hyperspike.io/v1
+kind: Org
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: test
+spec:
+  description: Test Env for Operator
+  instance:
+    name: gitea
+  teams:
+  - name: Test
+    permission: admin
+    members:
+    - demo
+---
+apiVersion: hyperspike.io/v1
+kind: Repo
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: repo-sample
+spec:
+  private: true
+  org:
+    name: test

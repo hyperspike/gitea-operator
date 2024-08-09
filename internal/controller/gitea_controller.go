@@ -79,7 +79,8 @@ type GiteaReconciler struct {
 	Scheme   *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=hyperspike.io,resources=gitea;valkey,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=hyperspike.io,resources=gitea,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=hyperspike.io,resources=valkeys,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;services,verbs=create;delete;get;list;watch;update
@@ -139,9 +140,6 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 	if err := r.upsertPG(ctx, gitea); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := r.upsertValkey(ctx, gitea); err != nil {
-		return ctrl.Result{}, err
-	}
 	if !gitea.Status.Ready {
 		if err := r.setCondition(ctx, gitea, "DatabaseReady", "False", "DatabaseReady", "database still provisioning"); err != nil {
 			return ctrl.Result{}, err
@@ -151,8 +149,14 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 		}
 	}
 	pgUp, _ := r.pgRunning(ctx, gitea)
+	if !pgUp {
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+	}
+	if err := r.upsertValkey(ctx, gitea); err != nil {
+		return ctrl.Result{}, err
+	}
 	vkUp, _ := r.valkeyRunning(ctx, gitea)
-	if !pgUp || !vkUp {
+	if !vkUp {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 	if !gitea.Status.Ready {
@@ -168,7 +172,7 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 			gitea.Name+"-"+gitea.Name))
 	r.Recorder.Event(gitea, "Normal", "Running",
 		fmt.Sprintf("Valkey %s is running",
-			gitea.Name))
+			gitea.Name+"-valkey"))
 
 	if err := r.upsertGiteaSvc(ctx, gitea); err != nil {
 		return ctrl.Result{}, err

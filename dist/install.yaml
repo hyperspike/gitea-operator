@@ -97,6 +97,10 @@ spec:
               sshHostname:
                 description: if different from Hostname
                 type: string
+              valkey:
+                default: false
+                description: Use Valkey
+                type: boolean
             type: object
           status:
             description: GiteaStatus defines the observed state of Gitea
@@ -961,6 +965,18 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - hyperspike.io
+  resources:
+  - valkeys
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - networking.k8s.io
   resources:

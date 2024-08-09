@@ -8,7 +8,7 @@ metadata:
 spec:
   email: demo@git.local
   password:
-    name: test-password
+    name: demo-password
     key: password
   instance:
     name: gitea
@@ -16,7 +16,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-password
+  name: demo-password
 type: Opaque
 stringData:
   password: test1234
@@ -31,7 +31,7 @@ metadata:
 spec:
   email: demo2@git.local
   password:
-    name: test-password
+    name: demo-password
     key: password
   instance:
     name: gitea
