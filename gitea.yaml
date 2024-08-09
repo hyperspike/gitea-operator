@@ -50,6 +50,7 @@ spec:
   teams:
   - name: Test
     permission: admin
+    includeAllRepos: true
     members:
     - demo
 ---
