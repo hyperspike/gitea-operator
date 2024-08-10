@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"time"
 
-	g "code.gitea.io/sdk/gitea"
+	hyperspikeClient "hyperspike.io/gitea-operator/internal/client"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -105,60 +105,22 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hyperv1.OrgRef, ns string) (string, string, error) {
 	logger := log.FromContext(ctx)
 
-	orgName := instance.Name
-	orgNamespace := instance.Namespace
-	if orgNamespace == "" {
-		orgNamespace = ns
-	}
-	org := &hyperv1.Org{}
-	if err := r.Get(ctx, types.NamespacedName{Name: orgName, Namespace: orgNamespace}, org); err != nil {
-		logger.Error(err, "failed to get gitea")
-		return "", "", err
-	}
-
-	git := &hyperv1.Gitea{}
-	gitName := org.Spec.Instance.Name
-	gitNamespace := org.Spec.Instance.Namespace
-	if gitNamespace == "" {
-		gitNamespace = ns
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: gitName, Namespace: gitNamespace}, git); err != nil {
-		logger.Error(err, "failed to get gitea")
-		return "", "", err
-	}
-	if !git.Status.Ready {
-		return "", "", nil
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      git.Name + "-admin",
-			Namespace: git.Namespace,
-		},
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: git.Name + "-admin", Namespace: git.Namespace}, secret); err != nil {
-		logger.Error(err, "failed getting admin secret "+git.Name+"-admin ")
+	hclient, git, err := hyperspikeClient.BuildFromOrg(ctx, r.Client, instance, ns)
+	if err != nil {
+		logger.Error(err, "failed to build client")
 		return "", "", err
 	}
 	instanceUrl := "http://" + git.Name + "." + git.Namespace + ".svc"
-	gClient, err := g.NewClient(instanceUrl, g.SetContext(ctx), g.SetToken(string(secret.Data["token"])))
-	if err != nil {
-		logger.Error(err, "failed to create client for "+instanceUrl)
-		return "", "", err
+	if git.Spec.TLS {
+		instanceUrl = "https://" + git.Name + "." + git.Namespace + ".svc"
 	}
-	_, _, err = gClient.ServerVersion()
-	if err != nil {
-		logger.Error(err, "failed to get server version "+instanceUrl)
-		return "", "", err
-	}
-	url := "http://" + git.Name + "." + git.Namespace + ".svc/api/v1/orgs/" + orgName + "/actions/runners/registration-token"
+	url := instanceUrl + "/actions/runners/registration-token"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", "", nil
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "token "+string(secret.Data["token"]))
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := hclient.Do(req)
 	if err != nil {
 		logger.Error(err, "failed posting to url "+url)
 		return "", "", err
@@ -182,7 +144,6 @@ func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hype
 	if tresp.Token == "" {
 		return "", "", nil
 	}
-
 	return tresp.Token, instanceUrl, nil
 }
 
