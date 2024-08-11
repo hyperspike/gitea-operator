@@ -54,6 +54,20 @@ type GiteaSpec struct {
 	// Use Valkey
 	// +kubebuilder:default:=false
 	Valkey bool `json:"valkey,omitempty"`
+
+	// Use TLS
+	// +kubebuilder:default:=false
+	TLS bool `json:"tls,omitempty"`
+
+	// TLS Cert-manager Issuer
+	CertIssuer string `json:"certIssuer,omitempty"`
+
+	// Cert-Manger Cluster Issuer Kind
+	// +kubebuilder:default:="ClusterIssuer"
+	// +kubebuilder:validation:Enum=ClusterIssuer;Issuer
+	CertIssuerType string `json:"certIssuerType,omitempty"`
+
+	ClusterDomain string `json:"clusterDomain,omitempty"`
 }
 
 type IngressSpec struct {
