@@ -1287,7 +1287,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: ghcr.io/hyperspike/gitea-operator:v0.0.4
+        image: ghcr.io/hyperspike/gitea-operator:v0.0.5
         livenessProbe:
           httpGet:
             path: /healthz

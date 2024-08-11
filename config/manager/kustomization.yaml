@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ghcr.io/hyperspike/gitea-operator
-  newTag: v0.0.4
+  newTag: v0.0.5
