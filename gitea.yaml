@@ -6,7 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: gitea
 spec:
-  prometheus: true
+  tls: true
+  certIssuer: selfsigned
+  prometheus: false
   prometheusLabels:
     prometheus: prometheus
   valkey: true

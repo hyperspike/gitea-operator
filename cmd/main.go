@@ -35,6 +35,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
 	hyperspikeiov1 "hyperspike.io/gitea-operator/api/v1"
@@ -51,6 +52,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	utilruntime.Must(certv1.AddToScheme(scheme))
 	utilruntime.Must(zalandov1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(hyperspikeiov1.AddToScheme(scheme))
@@ -104,6 +106,7 @@ func main() {
 
 	var namespaces = []string{
 		"default",
+		"cert-manager",
 	}
 	defaultNamespaces := make(map[string]cache.Config)
 

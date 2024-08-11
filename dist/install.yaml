@@ -66,6 +66,18 @@ spec:
           spec:
             description: GiteaSpec defines the desired state of Gitea
             properties:
+              certIssuer:
+                description: TLS Cert-manager Issuer
+                type: string
+              certIssuerType:
+                default: ClusterIssuer
+                description: Cert-Manger Cluster Issuer Kind
+                enum:
+                - ClusterIssuer
+                - Issuer
+                type: string
+              clusterDomain:
+                type: string
               externalSSH:
                 description: Create a loadbalancer for ssh access
                 type: boolean
@@ -102,6 +114,10 @@ spec:
               sshHostname:
                 description: if different from Hostname
                 type: string
+              tls:
+                default: false
+                description: Use TLS
+                type: boolean
               valkey:
                 default: false
                 description: Use Valkey
@@ -830,6 +846,27 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  - issuers
+  verbs:
   - get
   - list
   - watch

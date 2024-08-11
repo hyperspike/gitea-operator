@@ -20,12 +20,17 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +45,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
 	hyperv1 "hyperspike.io/gitea-operator/api/v1"
@@ -85,6 +92,8 @@ type GiteaReconciler struct {
 // +kubebuilder:rbac:groups=hyperspike.io,resources=valkeys,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=hyperspike.io,resources=gitea/finalizers,verbs=update
+// +kubebuilder:rbac:groups=cert-manager.io,resources=clusterissuers;issuers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;secrets;services,verbs=create;delete;get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;patch;update;watch;delete
 // +kubebuilder:rbac:groups="",resources=endpoints,verbs=create;delete;deletecollection;get;list;patch;update;watch
@@ -173,6 +182,11 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 		vkUp, _ := r.valkeyRunning(ctx, gitea)
 		if !vkUp {
 			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+		}
+	}
+	if gitea.Spec.TLS {
+		if err := r.upsertCertificate(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 	if !gitea.Status.Ready {
@@ -314,10 +328,6 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	}, false); err != nil {
 		return ctrl.Result{}, err
 	}
-	hostname := gitea.Spec.Ingress.Host
-	if hostname == "" {
-		hostname = "git.example.com"
-	}
 	password, err := r.getValkeyPassword(ctx, gitea)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -335,17 +345,8 @@ echo '==== END GITEA CONFIGURATION ===='`,
 		"queue":      queueSvc(gitea, password),
 		"repository": "ROOT=/data/git/gitea-repositories",
 		"security":   "INSTALL_LOCK=true",
-		"server": `APP_DATA_PATH=/data
-DOMAIN=` + hostname + `
-ENABLE_PPROF=false
-HTTP_PORT=3000
-PROTOCOL=http
-ROOT_URL=https://` + hostname + `
-SSH_DOMAIN=` + hostname + `
-SSH_LISTEN_PORT=2222
-SSH_PORT=22
-START_SSH_SERVER=true`,
-		"session": sessionSvc(gitea, password),
+		"server":     serverSvc(gitea),
+		"session":    sessionSvc(gitea, password),
 	}, false); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -726,6 +727,11 @@ func (r *GiteaReconciler) upsertValkey(ctx context.Context, gitea *hyperv1.Gitea
 			PrometheusLabels:  gitea.Spec.PrometheusLabels,
 		},
 	}
+	if gitea.Spec.TLS {
+		vk.Spec.TLS = true
+		vk.Spec.CertIssuer = gitea.Spec.CertIssuer
+		vk.Spec.CertIssuerType = gitea.Spec.CertIssuerType
+	}
 	if err := controllerutil.SetControllerReference(gitea, vk, r.Scheme); err != nil {
 		return err
 	}
@@ -769,6 +775,18 @@ func (r *GiteaReconciler) valkeyRunning(ctx context.Context, gitea *hyperv1.Gite
 
 func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
+	port := corev1.ServicePort{
+		Name:       "http",
+		Port:       80,
+		TargetPort: intstr.FromString("http"),
+	}
+	if gitea.Spec.TLS {
+		port = corev1.ServicePort{
+			Name:       "http",
+			Port:       443,
+			TargetPort: intstr.FromString("http"),
+		}
+	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gitea.Name,
@@ -779,11 +797,7 @@ func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Git
 			Type:     corev1.ServiceTypeClusterIP,
 			Selector: labels(gitea.Name),
 			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromString("http"),
-				},
+				port,
 			},
 		},
 	}
@@ -806,11 +820,47 @@ func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Git
 	return nil
 }
 
+func serverSvc(gitea *hyperv1.Gitea) string {
+	hostname := gitea.Spec.Ingress.Host
+	if hostname == "" {
+		hostname = "git.example.com"
+	}
+	service := `APP_DATA_PATH=/data
+DOMAIN=` + hostname + `
+ENABLE_PPROF=false
+HTTP_PORT=3000
+PROTOCOL=http
+ROOT_URL=https://` + hostname + `
+SSH_DOMAIN=` + hostname + `
+SSH_LISTEN_PORT=2222
+SSH_PORT=22
+START_SSH_SERVER=true`
+	if gitea.Spec.TLS {
+		service = `APP_DATA_PATH=/data
+DOMAIN=` + hostname + `
+ENABLE_PPROF=false
+HTTP_PORT=3000
+PROTOCOL=https
+ROOT_URL=https://` + hostname + `
+SSH_DOMAIN=` + hostname + `
+SSH_LISTEN_PORT=2222
+SSH_PORT=22
+START_SSH_SERVER=true
+CERT_FILE=/certs/tls.crt
+KEY_FILE=/certs/tls.key`
+	}
+	return service
+}
+
 func cacheSvc(gitea *hyperv1.Gitea, password string) string {
 	cache := "ADAPTER=memory"
 	if gitea.Spec.Valkey {
 		cache = `ADAPTER=redis
 HOST=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+		if gitea.Spec.TLS {
+			cache = `ADAPTER=redis
+HOST=rediss+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&skipverify=true"
+		}
 	}
 	return cache
 }
@@ -820,6 +870,10 @@ func sessionSvc(gitea *hyperv1.Gitea, password string) string {
 	if gitea.Spec.Valkey {
 		session = `PROVIDER=redis
 PROVIDER_CONFIG=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+		if gitea.Spec.TLS {
+			session = `PROVIDER=redis
+PROVIDER_CONFIG=rediss+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&skipverify=true"
+		}
 	}
 	return session
 }
@@ -829,6 +883,10 @@ func queueSvc(gitea *hyperv1.Gitea, password string) string {
 	if gitea.Spec.Valkey {
 		queue = `TYPE=redis
 CONN_STR=redis+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&"
+		if gitea.Spec.TLS {
+			queue = `TYPE=redis
+CONN_STR=rediss+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Namespace + ".svc:6379/0?pool_size=100&idle_timeout=180s&skipverify=true"
+		}
 	}
 	return queue
 }
@@ -837,8 +895,8 @@ func metricsSvc(gitea *hyperv1.Gitea) string {
 	metrics := "ENABLED=false"
 	if gitea.Spec.Prometheus {
 		metrics = `ENABLED=true
-ENABLE_ISSUE_BY_REPOSITORY=true
-ENABLE_ISSUE_BY_LABEL=true`
+ENABLED_ISSUE_BY_REPOSITORY=true
+ENABLED_ISSUE_BY_LABEL=false`
 	}
 	return metrics
 }
@@ -861,6 +919,147 @@ func (r *GiteaReconciler) getValkeyPassword(ctx context.Context, gitea *hyperv1.
 		return "", fmt.Errorf("password not found")
 	}
 	return string(vk.Data["password"]), nil
+}
+
+func (r *GiteaReconciler) getCertManagerIp(ctx context.Context) (string, error) {
+	logger := log.FromContext(ctx)
+	pods := &corev1.PodList{}
+	l := map[string]string{
+		"app.kubernetes.io/component": "controller",
+	}
+	if err := r.List(ctx, pods, client.InNamespace("cert-manager"), client.MatchingLabels(l)); err != nil {
+		logger.Error(err, "failed to list coredns pods")
+		return "", err
+	}
+	for _, pod := range pods.Items {
+		return pod.Status.PodIP, nil
+	}
+	return "", nil
+}
+
+func (r *GiteaReconciler) detectClusterDomain(ctx context.Context, gitea *hyperv1.Gitea) (string, error) {
+	logger := log.FromContext(ctx)
+
+	logger.Info("detecting cluster domain")
+	clusterDomain := os.Getenv("CLUSTER_DOMAIN")
+	if clusterDomain == "" {
+		clusterDomain = "cluster.local"
+	}
+	ip, err := r.getCertManagerIp(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if ip != "" {
+		addrs, err := net.LookupAddr(ip)
+		if err != nil {
+			logger.Error(err, "failed to lookup addr", "ip", ip)
+		} else {
+			logger.Info("detected addrs", "addrs", addrs)
+			clusterDomain = addrs[0]
+			clusterDomain = clusterDomain[strings.Index(clusterDomain, ".svc.")+5:]
+			clusterDomain = strings.TrimSuffix(clusterDomain, ".")
+			logger.Info("detected cluster domain", "clusterDomain", clusterDomain)
+		}
+	}
+	gitea.Spec.ClusterDomain = clusterDomain
+	if err := r.Update(ctx, gitea); err != nil {
+		logger.Error(err, "failed to update gitea")
+		return "", err
+	}
+	return clusterDomain, nil
+}
+
+func (r *GiteaReconciler) getCACertificate(ctx context.Context, gitea *hyperv1.Gitea) ([]byte, error) {
+	logger := log.FromContext(ctx)
+
+	cert := &certv1.Certificate{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: gitea.Namespace, Name: gitea.Name}, cert); err != nil {
+		logger.Error(err, "failed to get ca certificate")
+		return []byte{}, err
+	}
+	if cert.Status.Conditions == nil {
+		return []byte{}, nil
+	}
+	good := false
+	for _, cond := range cert.Status.Conditions {
+		if cond.Type == certv1.CertificateConditionReady {
+			if cond.Status == cmetav1.ConditionTrue {
+				good = true
+				break
+			}
+		}
+	}
+	if !good {
+		return []byte{}, nil
+	}
+	tls := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Namespace: gitea.Namespace, Name: cert.Spec.SecretName}, tls)
+	if err != nil {
+		logger.Error(err, "failed to get tls secret")
+		return []byte{}, err
+	}
+	return tls.Data["ca.crt"], nil
+}
+
+func (r *GiteaReconciler) upsertCertificate(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+
+	logger.Info("upserting certificate")
+
+	clusterDomain, err := r.detectClusterDomain(ctx, gitea)
+	if err != nil {
+		logger.Error(err, "failed to detect cluster domain")
+		return err
+	}
+	logger.Info("using cluster domain " + clusterDomain)
+	cert := &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name,
+			Namespace: gitea.Namespace,
+			Labels:    labels(gitea.Name),
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: gitea.Name + "." + gitea.Namespace + ".svc",
+			SecretName: gitea.Name + "-tls",
+			IssuerRef: cmetav1.ObjectReference{
+				Name: gitea.Spec.CertIssuer,
+				Kind: gitea.Spec.CertIssuerType,
+			},
+			DNSNames: []string{
+				"localhost",
+				gitea.Name,
+				gitea.Name + "." + gitea.Namespace + ".svc",
+				gitea.Name + "." + gitea.Namespace + ".svc." + clusterDomain,
+			},
+			IPAddresses: []string{
+				"127.0.0.1",
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(gitea, cert, r.Scheme); err != nil {
+		return err
+	}
+	err = r.Get(ctx, types.NamespacedName{Namespace: gitea.Namespace, Name: gitea.Name}, cert)
+	if err != nil && errors.IsNotFound(err) {
+		if err := r.Create(ctx, cert); err != nil {
+			logger.Error(err, "failed to create certificate")
+			return err
+		}
+		r.Recorder.Event(gitea, "Normal", "Created",
+			fmt.Sprintf("Certificate %s/%s is created", gitea.Namespace, gitea.Name))
+	} else if err != nil {
+		logger.Error(err, "failed to fetch certificate")
+		return err
+	} else if err == nil && false { // detect changes
+		if err := r.Update(ctx, cert); err != nil {
+			logger.Error(err, "failed to update certificate")
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gitea) error {
@@ -922,6 +1121,14 @@ func (r *GiteaReconciler) upsertServiceMonitor(ctx context.Context, gitea *hyper
 				},
 			},
 		},
+	}
+	if gitea.Spec.TLS {
+		sm.Spec.Endpoints[0].Scheme = "https"
+		sm.Spec.Endpoints[0].TLSConfig = &monitoringv1.TLSConfig{
+			SafeTLSConfig: monitoringv1.SafeTLSConfig{
+				InsecureSkipVerify: func(b bool) *bool { return &b }(true),
+			},
+		}
 	}
 	if err := controllerutil.SetControllerReference(gitea, sm, r.Scheme); err != nil {
 		return err
@@ -1280,11 +1487,47 @@ func (r *GiteaReconciler) podUP(ctx context.Context, gitea *hyperv1.Gitea) (bool
 	return false, nil
 }
 
+func (r *GiteaReconciler) httpClient(ctx context.Context, gitea *hyperv1.Gitea) (*http.Client, error) {
+	logger := log.FromContext(ctx)
+	httpClient := http.Client{
+		Timeout: time.Second * 10,
+	}
+	if gitea.Spec.TLS {
+		certpool, _ := x509.SystemCertPool()
+		if certpool == nil {
+			logger.Info("system cert pool is nil, creating new")
+			certpool = x509.NewCertPool()
+		}
+		cert, err := r.getCACertificate(ctx, gitea)
+		if err != nil {
+			logger.Error(err, "failed to get ca certificate")
+			return nil, err
+		}
+		certpool.AppendCertsFromPEM(cert)
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+				RootCAs:    certpool,
+			},
+		}
+	}
+	return &httpClient, nil
+}
+
 func (r *GiteaReconciler) apiUP(ctx context.Context, gitea *hyperv1.Gitea) bool {
 	logger := log.FromContext(ctx)
-	_, err := http.Get("http://" + gitea.Name + "." + gitea.Namespace + ".svc")
+	httpClient, err := r.httpClient(ctx, gitea)
 	if err != nil {
-		logger.Error(err, "failed to get http://"+gitea.Name+"."+gitea.Namespace+".svc")
+		logger.Error(err, "failed to get http client")
+		return false
+	}
+	url := "http://" + gitea.Name + "." + gitea.Namespace + ".svc"
+	if gitea.Spec.TLS {
+		url = "https://" + gitea.Name + "." + gitea.Namespace + ".svc"
+	}
+	_, err = httpClient.Get(url)
+	if err != nil {
+		logger.Error(err, "failed to get url "+url)
 		if err := r.setCondition(ctx, gitea, "Ready", "False", "Ready", "Api Down"); err != nil {
 			logger.Error(err, "Gitea status update failed.")
 			return false
@@ -1323,17 +1566,21 @@ func (r *GiteaReconciler) adminToken(ctx context.Context, gitea *hyperv1.Gitea) 
 		return err
 	}
 	tok, ok := secret.Data["token"]
-	if ok {
-		logger.Info("token detected, skipping", "Secret", gitea.Name+"-admin")
-		return nil
-	}
-	if len(tok) != 0 {
+	if ok && len(tok) != 0 {
 		logger.Info("token detected, skipping", "Secret", gitea.Name+"-admin")
 		return nil
 	}
 	logger.Info("creating admin token", "SecretName", gitea.Name+"-admin")
 	body := []byte(`{"name":"admin","scopes": ["write:admin","write:organization","write:repository","write:user"]}`)
 	url := "http://" + gitea.Name + "." + gitea.Namespace + ".svc/api/v1/users/gitea/tokens"
+	if gitea.Spec.TLS {
+		url = "https://" + gitea.Name + "." + gitea.Namespace + ".svc/api/v1/users/gitea/tokens"
+	}
+	httpClient, err := r.httpClient(ctx, gitea)
+	if err != nil {
+		logger.Error(err, "failed to get http client")
+		return err
+	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		logger.Error(err, "failed creating new http request")
@@ -1342,7 +1589,7 @@ func (r *GiteaReconciler) adminToken(ctx context.Context, gitea *hyperv1.Gitea) 
 	req.Header.Set("Content-Type", "application/json")
 	auth := base64.StdEncoding.EncodeToString([]byte(string(secret.Data["username"]) + ":" + string(secret.Data["password"])))
 	req.Header.Set("Authorization", "Basic "+auth)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		logger.Error(err, "failed posting to url "+url)
 		return err
@@ -1417,6 +1664,10 @@ func (r *GiteaReconciler) upsertPDB(ctx context.Context, gitea *hyperv1.Gitea) e
 func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
 	disk := resource.NewQuantity(50*1024*1024*1024, resource.BinarySI)
+	scheme := corev1.URISchemeHTTP
+	if gitea.Spec.TLS {
+		scheme = corev1.URISchemeHTTPS
+	}
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gitea.Name,
@@ -1506,8 +1757,9 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/api/healthz",
-										Port: intstr.FromString("http"),
+										Path:   "/api/healthz",
+										Port:   intstr.FromString("http"),
+										Scheme: scheme,
 									},
 								},
 								FailureThreshold:    3,
@@ -1591,6 +1843,32 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 		},
 	}
 	sts.Spec.Template.Spec.InitContainers[2].Env = append(sts.Spec.Template.Spec.InitContainers[2].Env, admins...)
+	if gitea.Spec.TLS {
+		sts.Spec.Template.Spec.Volumes = append(sts.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: "tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: gitea.Name + "-tls",
+				},
+			},
+		})
+		sts.Spec.Template.Spec.Containers[0].VolumeMounts = append(sts.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      "tls",
+			MountPath: "/certs",
+		})
+		sts.Spec.Template.Spec.InitContainers[0].VolumeMounts = append(sts.Spec.Template.Spec.InitContainers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      "tls",
+			MountPath: "/certs",
+		})
+		sts.Spec.Template.Spec.InitContainers[1].VolumeMounts = append(sts.Spec.Template.Spec.InitContainers[1].VolumeMounts, corev1.VolumeMount{
+			Name:      "tls",
+			MountPath: "/certs",
+		})
+		sts.Spec.Template.Spec.InitContainers[2].VolumeMounts = append(sts.Spec.Template.Spec.InitContainers[2].VolumeMounts, corev1.VolumeMount{
+			Name:      "tls",
+			MountPath: "/certs",
+		})
+	}
 
 	dbs := []corev1.EnvVar{
 		{
@@ -1673,13 +1951,20 @@ func (r *GiteaReconciler) upsertGiteaIngress(ctx context.Context, gitea *hyperv1
 	if hostname == "" {
 		hostname = "git.example.com"
 	}
+	annotations := gitea.Spec.Ingress.Annotations
+	if gitea.Spec.TLS {
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "HTTPS"
+	}
 	prefix := netv1.PathTypePrefix
 	ing := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        gitea.Name,
 			Namespace:   gitea.Namespace,
 			Labels:      labels(gitea.Name),
-			Annotations: gitea.Spec.Ingress.Annotations,
+			Annotations: annotations,
 		},
 		Spec: netv1.IngressSpec{
 			IngressClassName: ptrString("nginx"),
