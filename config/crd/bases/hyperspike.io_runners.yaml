@@ -89,6 +89,9 @@ spec:
             properties:
               provisioned:
                 type: boolean
+              tls:
+                description: TLS detected at the instance deployment
+                type: boolean
             required:
             - provisioned
             type: object

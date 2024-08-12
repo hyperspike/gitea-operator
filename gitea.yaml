@@ -8,7 +8,7 @@ metadata:
 spec:
   tls: true
   certIssuer: selfsigned
-  prometheus: false
+  prometheus: true
   prometheusLabels:
     prometheus: prometheus
   valkey: true
