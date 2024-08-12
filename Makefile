@@ -157,7 +157,7 @@ minikube: ## Spool up a local minikube cluster for development
 		TLS=$(TLS) \
 		PROMETHEUS=$(PROMETHEUS) \
 		VALKEY=$(VALKEY) \
-		scripts/minikube.sh
+		hack/minikube.sh
 
 tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 	$Q$(MINIKUBE) tunnel -p north
@@ -165,6 +165,39 @@ tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 proxy: ## turn on a port to push locally built containers into the cluster
 	$Q$(KUBECTL) port-forward --namespace kube-system service/registry 5000:80
 
+azure: ## Set an AKS cluster for development
+	$Qpushd hack/azure && \
+	tofu init && \
+	tofu apply -auto-approve
+azure-destroy: ## Destroy the development AKS cluster
+	$Qpushd hack/azure && \
+	tofu destroy -auto-approve
+
+akami: ## Setup a LKE cluster for development
+	$Qpushd hack/akami && \
+	tofu init && \
+	tofu apply -auto-approve
+akami-destroy: ## Destroy the development LKE cluster
+	$Qpushd hack/akami && \
+	tofu destroy -auto-approve
+
+aws: ## Set an EKS cluster for development
+	$Qpushd hack/aws && \
+	tofu init && \
+	tofu apply -auto-approve
+aws-destroy: ## Destroy the development EKS cluster
+	$Qpushd hack/aws && \
+	tofu destroy -auto-approve
+
+gcp: ## Set a GKE cluster for development
+	$Qpushd hack/gcp && \
+	tofu init && \
+	GOOGLE_PROJECT=$(shell cat hack/gcp/gcp-creds.json |jq -Mr .project_id) \
+	tofu apply -auto-approve
+gcp-destroy: ## Set a GKE cluster for development
+	$Qpushd hack/gcp && \
+	GOOGLE_PROJECT=$(shell cat hack/gcp/gcp-creds.json |jq -Mr .project_id) \
+	tofu destroy -auto-approve
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.

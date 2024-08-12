@@ -13,7 +13,7 @@ spec:
     prometheus: prometheus
   valkey: true
   ingress:
-    host: git.local
+    host: git.gcp.hyperspike.io
 ---
 apiVersion: hyperspike.io/v1
 kind: User
