@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"time"
 
 	hyperspikeClient "hyperspike.io/gitea-operator/internal/client"
@@ -72,11 +71,17 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		logger.Error(err, "failed to get Runner")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	token, url, err := r.registrationToken(ctx, runner.Spec.Org, runner.Namespace)
+	token, url, tls, instanceName, err := r.registrationToken(ctx, runner.Spec.Org, runner.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	runner.Status.TLS = tls
+	if err := r.Client.Status().Update(ctx, runner); err != nil {
+		logger.Error(err, "Failed to update Runner TLS status")
+		return ctrl.Result{}, nil
+	}
 	if token == "" {
+		logger.Info("No token found, requeueing")
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 	if err := r.upsertRunnerSA(ctx, runner); err != nil {
@@ -87,7 +92,7 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		logger.Error(err, "failed to upsert Runner Secret")
 		return ctrl.Result{}, err
 	}
-	if err := r.upsertRunnerSts(ctx, runner, url); err != nil {
+	if err := r.upsertRunnerSts(ctx, runner, url, instanceName); err != nil {
 		logger.Error(err, "failed to upsert Runner")
 		return ctrl.Result{}, err
 	}
@@ -102,28 +107,23 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hyperv1.OrgRef, ns string) (string, string, error) {
+func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hyperv1.OrgRef, ns string) (string, string, bool, string, error) {
 	logger := log.FromContext(ctx)
 
 	hclient, git, err := hyperspikeClient.BuildFromOrg(ctx, r.Client, instance, ns)
 	if err != nil {
 		logger.Error(err, "failed to build client")
-		return "", "", err
+		return "", "", false, "", err
 	}
 	instanceUrl := "http://" + git.Name + "." + git.Namespace + ".svc"
 	if git.Spec.TLS {
 		instanceUrl = "https://" + git.Name + "." + git.Namespace + ".svc"
 	}
-	url := instanceUrl + "/actions/runners/registration-token"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", "", nil
-	}
-	req.Header.Set("Accept", "application/json")
-	resp, err := hclient.Do(req)
+	url := instanceUrl + "/api/v1/orgs/" + instance.Name + "/actions/runners/registration-token"
+	resp, err := hclient.GetJSON(url)
 	if err != nil {
 		logger.Error(err, "failed posting to url "+url)
-		return "", "", err
+		return "", "", false, "", err
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -133,18 +133,19 @@ func (r *RunnerReconciler) registrationToken(ctx context.Context, instance *hype
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Error(err, "failed reading body from url "+url)
-		return "", "", err
+		return "", "", false, "", err
 	}
 	var tresp tokenRunner
 	err = json.Unmarshal(body, &tresp)
 	if err != nil {
-		logger.Error(err, "failed json unmarshal "+url)
-		return "", "", err
+		logger.Error(err, "failed json unmarshal "+url+" "+string(body))
+		return "", "", false, "", err
 	}
 	if tresp.Token == "" {
-		return "", "", nil
+		logger.Info("no token found in response from " + url + " " + string(body))
+		return "", "", false, "", nil
 	}
-	return tresp.Token, instanceUrl, nil
+	return tresp.Token, instanceUrl, git.Spec.TLS, git.Name, nil
 }
 
 type tokenRunner struct {
@@ -212,7 +213,7 @@ func ptr32(i int32) *int32 {
 	return &i
 }
 
-func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.Runner, instanceUrl string) error {
+func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.Runner, instanceUrl, instanceName string) error {
 	logger := log.FromContext(ctx)
 
 	disk := resource.NewQuantity(10*1024*1024*1024, resource.BinarySI)
@@ -332,6 +333,27 @@ func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.
 				},
 			},
 		},
+	}
+	if runner.Status.TLS {
+		sts.Spec.Template.Spec.Volumes = append(sts.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: "ca-certs",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: instanceName + "-tls",
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "ca.crt",
+							Path: "ca-certificates.crt",
+						},
+					},
+				},
+			},
+		})
+		sts.Spec.Template.Spec.Containers[0].VolumeMounts = append(sts.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      "ca-certs",
+			MountPath: "/etc/ssl/certs/ca-certificates.crt",
+			SubPath:   "ca-certificates.crt",
+		})
 	}
 	if err := controllerutil.SetControllerReference(runner, sts, r.Scheme); err != nil {
 		return err
