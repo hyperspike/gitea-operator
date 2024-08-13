@@ -3,9 +3,6 @@
 export CILIUM_CLI_MODE=classic
 export SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-export CILIUM_CLI_MODE=classic
-export SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
 
 bootcluster_linux() {
 	name=$1
@@ -141,20 +138,7 @@ addons() {
 	kubectl get deployment -n kube-system coredns -o yaml > .coredns.yaml
 	sed -i'' -e 's/\(replicas:\).*/\1\ 2/' .coredns.yaml
 	kubectl apply -f .coredns.yaml
-	kubectl apply -f $SCRIPT_DIR/postgres-operator.yaml
-	if [ ! -z ${VALKEY} ]; then
-		kubectl apply -f https://raw.githubusercontent.com/hyperspike/valkey-operator/main/dist/install.yaml
-	fi
-	if [ ! -z ${TLS} ]; then
-		LATEST=$(curl -s curl https://api.github.com/repos/cert-manager/cert-manager/releases/latest  | jq -cr .tag_name)
-		kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${LATEST}/cert-manager.yaml
-		kubectl apply -f $SCRIPT_DIR/issuer.yaml
-	fi
-	if [ ! -z ${PROMETHEUS} ]; then
-		LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
-		curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
-		kubectl apply -f $SCRIPT_DIR/prometheus.yaml
-	fi
+
 }
 
 OS=$(uname)

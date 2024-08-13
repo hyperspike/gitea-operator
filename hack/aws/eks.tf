@@ -3,7 +3,7 @@ resource "aws_eks_cluster" "eks" {
 	role_arn = aws_iam_role.eks_role.arn
 
 	vpc_config {
-		subnet_ids = [ aws_subnet.eks.*.id ]
+		subnet_ids = aws_subnet.eks.*.id
 		# security_group_ids = [aws_security_group.eks.id]
 	}
 
@@ -51,8 +51,9 @@ resource "aws_eks_node_group" "eks_node_group" {
 	instance_types = ["t3a.medium"]
 
 	scaling_config {
-		desired_size = 2
-		min_size = 3
+		desired_size = 3
+
+		min_size = 2
 		max_size = 4
 	}
 
@@ -102,4 +103,25 @@ resource "aws_iam_openid_connect_provider" "eks" {
 	client_id_list  = ["sts.amazonaws.com"]
 	thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
 	url             = data.tls_certificate.eks.url
+}
+
+data "aws_eks_cluster_auth" "current" {
+	name = aws_eks_cluster.eks.name
+}
+
+data "template_file" "kubeconfig" {
+	template = file("${path.module}/kubeconfig.tpl")
+
+	vars = {
+		name     = aws_eks_cluster.eks.name
+		endpoint = aws_eks_cluster.eks.endpoint
+		ca       = aws_eks_cluster.eks.certificate_authority.0.data
+		token    =  data.aws_eks_cluster_auth.current.token
+	}
+}
+
+resource "local_file" "kubeconfig" {
+	filename = "${path.module}/kubeconfig"
+	content  = data.template_file.kubeconfig.rendered
+	file_permission = "0600"
 }

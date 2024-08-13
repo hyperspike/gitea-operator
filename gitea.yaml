@@ -6,14 +6,14 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: gitea
 spec:
-  tls: true
+  tls: @TLS@
   certIssuer: selfsigned
-  prometheus: false
+  prometheus: @PROMETHEUS@
   prometheusLabels:
     prometheus: prometheus
-  valkey: true
+  valkey: @VALKEY@
   ingress:
-    host: git.gcp.hyperspike.io
+    host: git.@PROVIDER@.hyperspike.io
 ---
 apiVersion: hyperspike.io/v1
 kind: User

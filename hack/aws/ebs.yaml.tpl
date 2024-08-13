@@ -3,7 +3,7 @@ automountServiceAccountToken: true
 kind: ServiceAccount
 metadata:
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::026090516898:role/eks-ebs-role
+    eks.amazonaws.com/role-arn: ${role_arn}
   labels:
     app.kubernetes.io/name: aws-ebs-csi-driver
   name: ebs-csi-controller-sa

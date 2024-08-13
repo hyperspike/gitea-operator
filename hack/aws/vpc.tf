@@ -14,7 +14,7 @@ resource "aws_subnet" "eks" {
 	count = 2
 
 	vpc_id = aws_vpc.eks.id
-	cidr_block = "10.23.0.0/20"
+	cidr_block = cidrsubnet(aws_vpc.eks.cidr_block, 4, count.index)
 	availability_zone = data.aws_availability_zones.available.names[count.index]
 	map_public_ip_on_launch = true
 
@@ -45,10 +45,7 @@ resource "aws_route_table" "eks" {
 }
 
 resource "aws_route_table_association" "eks" {
-	subnet_id = aws_subnet.eks.id
-	route_table_id = aws_route_table.eks.id
-}
-resource "aws_route_table_association" "eks-b" {
-	subnet_id = aws_subnet.eks-b.id
+	count = 2
+	subnet_id = aws_subnet.eks[count.index].id
 	route_table_id = aws_route_table.eks.id
 }

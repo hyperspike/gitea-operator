@@ -41,3 +41,4 @@ gcp-creds.json
 terraform.tfstate
 terraform.tfstate.backup
 kubeconfig
+ebs.yaml$

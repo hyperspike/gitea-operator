@@ -28,3 +28,27 @@ resource "aws_iam_role_policy_attachment" "eks_ebs-EBSControllerPolicy" {
 	role = aws_iam_role.eks_ebs_role.name
 	policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
+
+data "template_file" "ebs" {
+	template = file("${path.module}/ebs.yaml.tpl")
+
+	vars = {
+		role_arn = aws_iam_role.eks_ebs_role.arn
+	}
+}
+
+resource "local_file" "ebs" {
+	content = data.template_file.ebs.rendered
+	filename = "${path.module}/ebs.yaml"
+}
+
+resource "null_resource" "kubectl-ebs" {
+	provisioner "local-exec" {
+		command = "KUBECONFIG=${path.module}/kubeconfig kubectl apply -f ${path.module}/ebs.yaml"
+	}
+
+	depends_on = [
+		local_file.kubeconfig,
+		local_file.ebs
+	]
+}

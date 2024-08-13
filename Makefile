@@ -154,10 +154,11 @@ endif
 minikube: ## Spool up a local minikube cluster for development
 	$QK8S_VERSION=$(K8S_VERSION) \
 		CILIUM_VERSION=$(CILIUM_VERSION) \
-		TLS=$(TLS) \
+		hack/minikube.sh
+	$QTLS=$(TLS) \
 		PROMETHEUS=$(PROMETHEUS) \
 		VALKEY=$(VALKEY) \
-		hack/minikube.sh
+		hack/quickstart.sh
 
 tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 	$Q$(MINIKUBE) tunnel -p north
@@ -189,6 +190,17 @@ aws-destroy: ## Destroy the development EKS cluster
 	$Qpushd hack/aws && \
 	tofu destroy -auto-approve
 
+hack/aws/kubeconfig: aws
+
+quickstart-aws: hack/aws/kubeconfig ## Set an EKS cluster for development
+	$QKUBECONFIG=$< \
+		TLS=$(TLS) \
+		PROMETHEUS=$(PROMETHEUS) \
+		VALKEY=$(VALKEY) \
+		PROVIDER=aws \
+		hack/quickstart.sh
+	$Qecho export KUBECONFIG=$(shell pwd)/$<
+
 gcp: ## Set a GKE cluster for development
 	$Qpushd hack/gcp && \
 	tofu init && \
@@ -198,6 +210,15 @@ gcp-destroy: ## Set a GKE cluster for development
 	$Qpushd hack/gcp && \
 	GOOGLE_PROJECT=$(shell cat hack/gcp/gcp-creds.json |jq -Mr .project_id) \
 	tofu destroy -auto-approve
+hack/gcp/kubeconfig: gcp
+quickstart-gcp: hack/gcp/kubeconfig ## Set an EKS cluster for development
+	$QKUBECONFIG=$< \
+		TLS=$(TLS) \
+		PROMETHEUS=$(PROMETHEUS) \
+		VALKEY=$(VALKEY) \
+		PROVIDER=aws \
+		hack/quickstart.sh
+	$Qecho export KUBECONFIG=$(shell pwd)/$<
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
