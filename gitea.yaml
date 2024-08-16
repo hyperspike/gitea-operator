@@ -8,12 +8,12 @@ metadata:
 spec:
   tls: true
   certIssuer: selfsigned
-  prometheus: true
+  prometheus: false
   prometheusLabels:
     prometheus: prometheus
   valkey: true
   ingress:
-    host: git.local
+    host: git.sandbox.hyperspike.io
 ---
 apiVersion: hyperspike.io/v1
 kind: User
