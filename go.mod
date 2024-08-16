@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.34.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.0
 	github.com/zalando/postgres-operator v1.12.2
-	hyperspike.io/valkey-operator v0.0.11
+	hyperspike.io/valkey-operator v0.0.12
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
