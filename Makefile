@@ -168,23 +168,6 @@ registry-proxy: ## turn on a port to push locally built containers into the clus
 prometheus-proxy: ## turn on a port to access The Prometheus UI
 	$Q$(KUBECTL) port-forward --namespace kube-system service/prometheus 9090:9090
 
-azure: ## Set an AKS cluster for development
-	$Qpushd hack/azure && \
-	tofu init && \
-	tofu apply -auto-approve
-azure-destroy: ## Destroy the development AKS cluster
-	$Qpushd hack/azure && \
-	tofu destroy -auto-approve
-hack/azure/kubeconfig: azure
-quickstart-azure: hack/azure/kubeconfig ## Set an AKS cluster for development
-	$QKUBECONFIG=$< \
-		TLS=$(TLS) \
-		PROMETHEUS=$(PROMETHEUS) \
-		VALKEY=$(VALKEY) \
-		PROVIDER=azure \
-		hack/quickstart.sh
-	$Qecho export KUBECONFIG=$(shell pwd)/$<
-
 aws: ## Set an EKS cluster for development
 	$Qpushd hack/aws && \
 	tofu init && \
