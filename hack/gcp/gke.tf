@@ -51,6 +51,10 @@ resource "google_container_cluster" "primary" {
 		"us-east5-a"
 	]
 
+	workload_identity_config {
+		workload_pool = "${data.google_project.self.project_id}.svc.id.goog"
+	}
+
 	# We can't create a cluster with no node pool defined, but we want to only use
 	# separately managed node pools. So we create the smallest possible default
 	# node pool and immediately delete it.
@@ -89,6 +93,10 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
 	}
 }
 
+output "node_pool" {
+	value = google_container_node_pool.primary_preemptible_nodes
+}
+
 data "google_client_config" "default" {}
 
 data "template_file" "kubeconfig" {
@@ -107,3 +115,5 @@ resource "local_file" "kubeconfig" {
 	filename = "kubeconfig"
 	file_permission = "0600"
 }
+
+

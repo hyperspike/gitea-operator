@@ -22,3 +22,13 @@ if [ "${PROVIDER}" == "aws" ] ; then
 	LATEST=$(curl -s https://api.github.com/repos/kubernetes/ingress-nginx/releases/latest | jq -cr .tag_name)
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/${LATEST}/deploy/static/provider/aws/deploy.yaml
 fi
+
+if [ "${PROVIDER}" == "gcp" ] ; then
+	LATEST=$(curl -s https://api.github.com/repos/kubernetes/ingress-nginx/releases/latest | jq -cr .tag_name)
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/${LATEST}/deploy/static/provider/cloud/deploy.yaml
+fi
+
+if [ "${PROVIDER}" == "azure" ] ; then
+	LATEST=$(curl -s https://api.github.com/repos/kubernetes/ingress-nginx/releases/latest | jq -cr .tag_name)
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/${LATEST}/deploy/static/provider/cloud/deploy.yaml
+fi

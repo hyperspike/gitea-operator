@@ -32,14 +32,6 @@ rules:
   - ""
   resources:
   - secrets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
   - serviceaccounts
   - services
   verbs:
@@ -101,6 +93,11 @@ rules:
   - hyperspike.io
   resources:
   - gitea
+  - orgs
+  - repoes
+  - runners
+  - users
+  - valkeys
   verbs:
   - create
   - delete
@@ -113,132 +110,24 @@ rules:
   - hyperspike.io
   resources:
   - gitea/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - gitea/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - orgs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - orgs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - orgs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - repoes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - repoes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - repoes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - runners
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - runners/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - runners/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - users
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - users/finalizers
   verbs:
   - update
 - apiGroups:
   - hyperspike.io
   resources:
+  - gitea/status
+  - orgs/status
+  - repoes/status
+  - runners/status
   - users/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - valkeys
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:

@@ -25,8 +25,8 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-K8S_VERSION ?= 1.30.3
-CILIUM_VERSION ?= 1.16.0
+K8S_VERSION ?= 1.30.4
+CILIUM_VERSION ?= 1.16.1
 
 V ?= 0
 ifeq ($(V), 1)
@@ -163,8 +163,10 @@ minikube: ## Spool up a local minikube cluster for development
 tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 	$Q$(MINIKUBE) tunnel -p north
 
-proxy: ## turn on a port to push locally built containers into the cluster
+registry-proxy: ## turn on a port to push locally built containers into the cluster
 	$Q$(KUBECTL) port-forward --namespace kube-system service/registry 5000:80
+prometheus-proxy: ## turn on a port to access The Prometheus UI
+	$Q$(KUBECTL) port-forward --namespace kube-system service/prometheus 9090:9090
 
 azure: ## Set an AKS cluster for development
 	$Qpushd hack/azure && \
@@ -173,14 +175,15 @@ azure: ## Set an AKS cluster for development
 azure-destroy: ## Destroy the development AKS cluster
 	$Qpushd hack/azure && \
 	tofu destroy -auto-approve
-
-akami: ## Setup a LKE cluster for development
-	$Qpushd hack/akami && \
-	tofu init && \
-	tofu apply -auto-approve
-akami-destroy: ## Destroy the development LKE cluster
-	$Qpushd hack/akami && \
-	tofu destroy -auto-approve
+hack/azure/kubeconfig: azure
+quickstart-azure: hack/azure/kubeconfig ## Set an AKS cluster for development
+	$QKUBECONFIG=$< \
+		TLS=$(TLS) \
+		PROMETHEUS=$(PROMETHEUS) \
+		VALKEY=$(VALKEY) \
+		PROVIDER=azure \
+		hack/quickstart.sh
+	$Qecho export KUBECONFIG=$(shell pwd)/$<
 
 aws: ## Set an EKS cluster for development
 	$Qpushd hack/aws && \
@@ -189,9 +192,7 @@ aws: ## Set an EKS cluster for development
 aws-destroy: ## Destroy the development EKS cluster
 	$Qpushd hack/aws && \
 	tofu destroy -auto-approve
-
 hack/aws/kubeconfig: aws
-
 quickstart-aws: hack/aws/kubeconfig ## Set an EKS cluster for development
 	$QKUBECONFIG=$< \
 		TLS=$(TLS) \
@@ -216,7 +217,7 @@ quickstart-gcp: hack/gcp/kubeconfig ## Set an EKS cluster for development
 		TLS=$(TLS) \
 		PROMETHEUS=$(PROMETHEUS) \
 		VALKEY=$(VALKEY) \
-		PROVIDER=aws \
+		PROVIDER=gcp \
 		hack/quickstart.sh
 	$Qecho export KUBECONFIG=$(shell pwd)/$<
 
@@ -254,7 +255,7 @@ GOSEC := $(shell which gosec)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.4.1
-CONTROLLER_TOOLS_VERSION ?= v0.15.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.0
 ENVTEST_VERSION ?= release-0.18
 GOLANGCI_LINT_VERSION ?= v1.57.2
 
