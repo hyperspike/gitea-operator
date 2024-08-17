@@ -30,6 +30,9 @@ type GiteaSpec struct {
 	// Ingress for external access
 	Ingress IngressSpec `json:"ingress,omitempty"`
 
+	// Object Storage for Gitea
+	ObjectStorage *ObjectSpec `json:"objectStorage,omitempty"`
+
 	// Create a loadbalancer for ssh access
 	ExternalSSH bool `json:"externalSSH,omitempty"`
 
@@ -68,6 +71,19 @@ type GiteaSpec struct {
 	CertIssuerType string `json:"certIssuerType,omitempty"`
 
 	ClusterDomain string `json:"clusterDomain,omitempty"`
+}
+
+type ObjectSpec struct {
+	// Object Storage Type
+	// +kubebuilder:default:="minio"
+	// +kubebuilder:validation:Enum=minio;gcs;s3
+	Type string `json:"type,omitempty"`
+
+	// Object Storage Endpoint
+	Endpoint string `json:"endpoint,omitempty"`
+
+	// Object Cloud Provider Region
+	Region string `json:"region,omitempty"`
 }
 
 type IngressSpec struct {

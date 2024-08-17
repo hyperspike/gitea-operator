@@ -62,18 +62,20 @@ func Build(ctx context.Context, r rclient.Client, instance *hyperv1.InstanceType
 	if !git.Status.Ready {
 		return nil, nil, nil
 	}
+	var err error
+	c := Client{}
 	url := "http://" + git.Name + "." + git.Namespace + ".svc"
 	if git.Spec.TLS {
 		url = "https://" + git.Name + "." + git.Namespace + ".svc"
+		c.CA, err = getCACertificate(ctx, r, git)
+		if err != nil {
+			logger.Error(err, "failed to get ca certificate")
+			return nil, nil, err
+		}
+		c.httpClient = httpClient(ctx, c.CA)
+	} else {
+		c.httpClient = httpClient(ctx, nil)
 	}
-	var err error
-	c := Client{}
-	c.CA, err = getCACertificate(ctx, r, git)
-	if err != nil {
-		logger.Error(err, "failed to get ca certificate")
-		return nil, nil, err
-	}
-	c.httpClient = httpClient(ctx, c.CA)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      git.Name + "-admin",

@@ -93,10 +93,6 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
 	}
 }
 
-output "node_pool" {
-	value = google_container_node_pool.primary_preemptible_nodes
-}
-
 data "google_client_config" "default" {}
 
 data "template_file" "kubeconfig" {

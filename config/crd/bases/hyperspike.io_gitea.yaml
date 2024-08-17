@@ -90,6 +90,24 @@ spec:
                     example: git.local
                     type: string
                 type: object
+              objectStorage:
+                description: Object Storage for Gitea
+                properties:
+                  endpoint:
+                    description: Object Storage Endpoint
+                    type: string
+                  region:
+                    description: Object Cloud Provider Region
+                    type: string
+                  type:
+                    default: minio
+                    description: Object Storage Type
+                    enum:
+                    - minio
+                    - gcs
+                    - s3
+                    type: string
+                type: object
               prometheus:
                 default: false
                 description: enable prometheus integrations
