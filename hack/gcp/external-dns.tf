@@ -17,9 +17,6 @@ resource "google_dns_managed_zone_iam_member" "external-dns" {
 	role         = "roles/dns.admin"
 }
 
-output "external_dns" {
-	value = google_dns_managed_zone_iam_member.external-dns
-}
 data "template_file" "external_dns" {
 	template = file("${path.module}/external-dns.yaml.tpl")
 
@@ -35,9 +32,10 @@ resource "local_file" "external_dns" {
 }
 
 resource "google_dns_managed_zone" "hyperspike-io" {
-	name        = "gcp-sandbox-hyperspike-io"
-	dns_name    = "gcp-sandbox.hyperspike.io."
-	description = "Subdomain for hyperspike DNS"
+	name          = "gcp-sandbox-hyperspike-io"
+	dns_name      = "gcp-sandbox.hyperspike.io."
+	description   = "Subdomain for Gitea-Operator hyperspike DNS"
+	force_destroy = true
 
 	#dnssec_config {
 	#}

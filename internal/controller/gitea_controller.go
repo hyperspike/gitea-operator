@@ -45,6 +45,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	hclient "hyperspike.io/gitea-operator/internal/client"
+
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -80,6 +82,8 @@ func randString(n int) (string, error) {
 
 	return string(ret), nil
 }
+
+const objectFinalizer = "object.hyperspike.io/finalizer"
 
 // GiteaReconciler reconciles a Gitea object
 type GiteaReconciler struct {
@@ -207,6 +211,28 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 			fmt.Sprintf("Valkey %s is running",
 				gitea.Name+"-valkey"))
 	}
+	access, secret := "", ""
+	if gitea.Spec.ObjectStorage != nil {
+		var err error
+		access, secret, err = r.upsertObject(ctx, gitea)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		isGiteaMarkedToBeDeleted := gitea.GetDeletionTimestamp() != nil
+		if isGiteaMarkedToBeDeleted {
+			if controllerutil.ContainsFinalizer(gitea, objectFinalizer) {
+				if err := r.deleteObject(ctx, gitea); err != nil {
+					return ctrl.Result{}, err
+				}
+				controllerutil.RemoveFinalizer(gitea, objectFinalizer)
+				err := r.Update(ctx, gitea)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{}, nil
+		}
+	}
 
 	if gitea.Spec.Prometheus {
 		if err := r.upsertServiceMonitor(ctx, gitea); err != nil {
@@ -332,7 +358,7 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-inline-config", map[string]string{
+	inlineConfig := map[string]string{
 		"_generals_": "",
 		"cache":      cacheSvc(gitea, password),
 		/* "database": `DB_TYPE=postgres
@@ -347,7 +373,19 @@ echo '==== END GITEA CONFIGURATION ===='`,
 		"security":   "INSTALL_LOCK=true",
 		"server":     serverSvc(gitea),
 		"session":    sessionSvc(gitea, password),
-	}, false); err != nil {
+		"storage":    storageSvc(gitea, access, secret),
+	}
+	if gitea.Spec.ObjectStorage != nil {
+		//inlineConfig["storage.object"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage.lfs"] = storageSvc(gitea, access, secret)
+		inlineConfig["attachment"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage.attachment"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage.avatars"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage.packages"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage.action_log"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage.action_artifacts"] = storageSvc(gitea, access, secret)
+	}
+	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-inline-config", inlineConfig, false); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -773,6 +811,26 @@ func (r *GiteaReconciler) valkeyRunning(ctx context.Context, gitea *hyperv1.Gite
 
 // }}}
 
+func (r *GiteaReconciler) getObjectStorage(ctx context.Context, gitea *hyperv1.Gitea) (string, string, error) {
+	access, secret := "", ""
+	if gitea.Spec.ObjectStorage == nil {
+		return access, secret, nil
+	}
+	scrt := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-object",
+			Namespace: gitea.Namespace,
+		},
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-object", Namespace: gitea.Namespace}, scrt); err != nil {
+		return access, secret, err
+	}
+
+	access = string(scrt.Data["access"])
+	secret = string(scrt.Data["secret"])
+	return access, secret, nil
+}
+
 func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
 	port := corev1.ServicePort{
@@ -863,6 +921,38 @@ HOST=rediss+cluster://:` + password + "@" + gitea.Name + "-valkey." + gitea.Name
 		}
 	}
 	return cache
+}
+
+func storageSvc(gitea *hyperv1.Gitea, access, secret string) string {
+	storage := `TYPE=local`
+	if gitea.Spec.ObjectStorage != nil {
+		region := gitea.Spec.ObjectStorage.Region
+		if region == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+			region = "auto"
+		}
+		if region == "" && gitea.Spec.ObjectStorage.Type == "s3" {
+			if os.Getenv("AWS_REGION") != "" {
+				region = os.Getenv("AWS_REGION")
+			} else {
+				region = "us-east-1"
+			}
+		}
+		endPoint := gitea.Spec.ObjectStorage.Endpoint
+		if endPoint == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+			endPoint = "storage.googleapis.com"
+		}
+		if endPoint == "" && gitea.Spec.ObjectStorage.Type == "s3" {
+			endPoint = fmt.Sprintf("s3.%s.amazonaws.com", region)
+		}
+		storage = `STORAGE_TYPE=minio
+MINIO_ACCESS_KEY_ID=` + access + `
+MINIO_ENDPOINT=` + endPoint + `
+MINIO_SECRET_ACCESS_KEY=` + secret + `
+MINIO_LOCATION=` + region + `
+MINIO_USE_SSL=true
+MINIO_BUCKET=gitea-operator-` + gitea.Name + "-" + gitea.Namespace + "-" + gitea.Spec.Ingress.Host
+	}
+	return storage
 }
 
 func sessionSvc(gitea *hyperv1.Gitea, password string) string {
@@ -1302,6 +1392,112 @@ func matchSecrets(base, match corev1.Secret) bool {
 		}
 	}
 	return true
+}
+
+func (r *GiteaReconciler) upsertObject(ctx context.Context, gitea *hyperv1.Gitea) (string, string, error) {
+	logger := log.FromContext(ctx)
+
+	endPoint := gitea.Spec.ObjectStorage.Endpoint
+	if endPoint == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+		endPoint = "storage.googleapis.com"
+	}
+	region := gitea.Spec.ObjectStorage.Region
+	if region == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+		region = "auto"
+	}
+	if region == "" && gitea.Spec.ObjectStorage.Type == "s3" {
+		if os.Getenv("AWS_REGION") != "" {
+			region = os.Getenv("AWS_REGION")
+		} else {
+			region = "us-east-1"
+		}
+	}
+
+	objClient, err := hclient.NewObjectClient(ctx, &hclient.ObjectOpts{
+		Endpoint:      endPoint,
+		CloudProvider: gitea.Spec.ObjectStorage.Type,
+		Region:        region,
+	})
+	if err != nil {
+		logger.Error(err, "failed to create object client")
+		return "", "", err
+	}
+	buckets, err := objClient.ListBuckets()
+	if err != nil {
+		logger.Error(err, "failed to list buckets")
+		return "", "", err
+	}
+	//bucketName := "gitea-operator-" + gitea.Name + "-" + gitea.Namespace + "-" + strings.Replace(gitea.Spec.Ingress.Host, ".", "_", -1)
+	bucketName := "gitea-operator-" + gitea.Name + "-" + gitea.Namespace + "-" + gitea.Spec.Ingress.Host
+	found := false
+	for _, bucket := range buckets {
+		if bucket == bucketName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		if err := objClient.CreateBucket(bucketName); err != nil {
+			logger.Error(err, "failed to create bucket")
+			return "", "", err
+		}
+	}
+	access, secret, err := r.getObjectStorage(ctx, gitea)
+	if err == nil && access != "" && secret != "" {
+		return access, secret, nil
+	}
+
+	logger.Info("creating object storage")
+
+	access, secret, err = objClient.Credentials("gitea-operator-"+gitea.Name+"-"+gitea.Namespace, bucketName)
+	if err != nil {
+		logger.Error(err, "failed to get credentials")
+		return "", "", err
+	}
+
+	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-object", map[string]string{
+		"access": access,
+		"secret": secret,
+	}, false); err != nil {
+		logger.Error(err, "failed to upsert secret object")
+		return "", "", err
+	}
+	if !controllerutil.ContainsFinalizer(gitea, objectFinalizer) {
+		controllerutil.AddFinalizer(gitea, objectFinalizer)
+		if err := r.Update(ctx, gitea); err != nil {
+			logger.Error(err, "failed to add finalizers")
+			return access, secret, err
+		}
+	}
+
+	return access, secret, nil
+}
+
+func (r *GiteaReconciler) deleteObject(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+
+	//bucketName := "gitea-operator-" + gitea.Name + "-" + gitea.Namespace + "-" + strings.Replace(gitea.Spec.Ingress.Host, ".", "_", -1)
+	bucketName := "gitea-operator-" + gitea.Name + "-" + gitea.Namespace + "-" + gitea.Spec.Ingress.Host
+	userName := "gitea-operator-" + gitea.Name + "-" + gitea.Namespace
+
+	objClient, err := hclient.NewObjectClient(ctx, &hclient.ObjectOpts{
+		Endpoint:      gitea.Spec.ObjectStorage.Endpoint,
+		CloudProvider: gitea.Spec.ObjectStorage.Type,
+	})
+	if err != nil {
+		logger.Error(err, "failed to create object client")
+		return err
+	}
+	if err := objClient.DeleteUser(userName); err != nil {
+		logger.Error(err, "failed to delete user", "user", userName)
+		return err
+	}
+	if err := objClient.DeleteBucket(bucketName); err != nil {
+		logger.Error(err, "failed to delete bucket", "bucket", bucketName)
+		return err
+	}
+
+	return nil
 }
 
 func (r *GiteaReconciler) upsertSecret(ctx context.Context, gitea *hyperv1.Gitea, name string, strData map[string]string, once bool) error {

@@ -11,7 +11,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.0
   name: gitea.hyperspike.io
 spec:
   group: hyperspike.io
@@ -98,6 +98,24 @@ spec:
                     example: git.local
                     type: string
                 type: object
+              objectStorage:
+                description: Object Storage for Gitea
+                properties:
+                  endpoint:
+                    description: Object Storage Endpoint
+                    type: string
+                  region:
+                    description: Object Cloud Provider Region
+                    type: string
+                  type:
+                    default: minio
+                    description: Object Storage Type
+                    enum:
+                    - minio
+                    - gcs
+                    - s3
+                    type: string
+                type: object
               prometheus:
                 default: false
                 description: enable prometheus integrations
@@ -131,16 +149,8 @@ spec:
                   INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
                   Important: Run "make" to regenerate code after modifying this file
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -181,12 +191,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -213,7 +218,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.0
   name: orgs.hyperspike.io
 spec:
   group: hyperspike.io
@@ -338,7 +343,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.0
   name: repoes.hyperspike.io
 spec:
   group: hyperspike.io
@@ -460,7 +465,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.0
   name: runners.hyperspike.io
 spec:
   group: hyperspike.io
@@ -562,7 +567,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.0
   name: users.hyperspike.io
 spec:
   group: hyperspike.io
@@ -640,9 +645,7 @@ spec:
                       This field is effectively required, but due to backwards compatibility is
                       allowed to be empty. Instances of this type with an empty value here are
                       almost certainly wrong.
-                      TODO: Add other useful fields. apiVersion, kind, uid?
                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
                     type: string
                   optional:
                     description: Specify whether the Secret or its key must be defined
@@ -815,14 +818,6 @@ rules:
   - ""
   resources:
   - secrets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
   - serviceaccounts
   - services
   verbs:
@@ -884,6 +879,11 @@ rules:
   - hyperspike.io
   resources:
   - gitea
+  - orgs
+  - repoes
+  - runners
+  - users
+  - valkeys
   verbs:
   - create
   - delete
@@ -896,132 +896,24 @@ rules:
   - hyperspike.io
   resources:
   - gitea/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - gitea/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - orgs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - orgs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - orgs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - repoes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - repoes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - repoes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - runners
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - runners/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - runners/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - users
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hyperspike.io
-  resources:
   - users/finalizers
   verbs:
   - update
 - apiGroups:
   - hyperspike.io
   resources:
+  - gitea/status
+  - orgs/status
+  - repoes/status
+  - runners/status
   - users/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - hyperspike.io
-  resources:
-  - valkeys
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -1327,7 +1219,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: ghcr.io/hyperspike/gitea-operator:v0.0.5
+        image: ghcr.io/hyperspike/valkey-operator:v0.0.12
         livenessProbe:
           httpGet:
             path: /healthz
