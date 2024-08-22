@@ -146,7 +146,7 @@ func (r *GiteaReconciler) setCondition(ctx context.Context, gitea *hyperv1.Gitea
 	meta.SetStatusCondition(&gitea.Status.Conditions, condition)
 
 	if err := r.Client.Status().Update(ctx, gitea); err != nil {
-		logger.Info("Gitea status update failed.")
+		logger.Error(err, "Gitea status update failed.")
 	}
 	return nil
 }
@@ -331,7 +331,7 @@ function configure_admin_user() {
 		echo '...created.'
 	else
 		echo "Admin account '${GITEA_ADMIN_USERNAME}' already exist. Running update to sync password..."
-		gitea admin user change-password --username "${GITEA_ADMIN_USERNAME}" --password "${GITEA_ADMIN_PASSWORD}"
+		gitea admin user change-password --username "${GITEA_ADMIN_USERNAME}" --password "${GITEA_ADMIN_PASSWORD} --must-change-password=false"
 		echo '...password sync done.'
 	fi
 }
@@ -373,10 +373,10 @@ echo '==== END GITEA CONFIGURATION ===='`,
 		"security":   "INSTALL_LOCK=true",
 		"server":     serverSvc(gitea),
 		"session":    sessionSvc(gitea, password),
-		"storage":    storageSvc(gitea, access, secret),
 	}
 	if gitea.Spec.ObjectStorage != nil {
 		//inlineConfig["storage.object"] = storageSvc(gitea, access, secret)
+		inlineConfig["storage"] = storageSvc(gitea, access, secret)
 		inlineConfig["storage.lfs"] = storageSvc(gitea, access, secret)
 		inlineConfig["attachment"] = storageSvc(gitea, access, secret)
 		inlineConfig["storage.attachment"] = storageSvc(gitea, access, secret)
@@ -1663,7 +1663,7 @@ func (r *GiteaReconciler) podUP(ctx context.Context, gitea *hyperv1.Gitea) (bool
 		return false, err
 	}
 	for _, pod := range pods.Items {
-		if pod.ObjectMeta.Labels["app.kubernetes.io/name"] != gitea.Name {
+		if pod.ObjectMeta.Labels["app.kubernetes.io/name"] != "gitea" {
 			continue
 		}
 		if pod.ObjectMeta.Labels["app.kubernetes.io/component"] == "deployment" && pod.ObjectMeta.Labels["app.kubernetes.io/instance"] == gitea.Name {
