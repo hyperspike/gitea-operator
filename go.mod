@@ -7,7 +7,6 @@ require (
 	cloud.google.com/go/iam v1.1.8
 	cloud.google.com/go/storage v1.43.0
 	code.gitea.io/sdk/gitea v0.19.0
-	github.com/aws/aws-sdk-go v1.53.8
 	github.com/aws/aws-sdk-go-v2/config v1.27.15
 	github.com/aws/aws-sdk-go-v2/service/iam v1.35.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.59.0
@@ -78,7 +77,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.5 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
-	github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
