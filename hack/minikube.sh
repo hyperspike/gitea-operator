@@ -132,7 +132,7 @@ addons() {
 	kubectl get svc -n ingress-nginx ingress-nginx-controller  -o yaml > .ingress.yaml
 	sed -i'' -e 's/NodePort/LoadBalancer/' -e '/allocateNode/d' .ingress.yaml
 	kubectl apply -f .ingress.yaml
-	kubectl apply -f scripts/ingress.yaml
+	kubectl apply -f ${SCRIPT_DIR}/ingress.yaml
 	kubectl delete po -n ingress-nginx -l app.kubernetes.io/component=controller
 	kubectl delete pod -l k8s-app=kube-dns -n kube-system
 	kubectl get deployment -n kube-system coredns -o yaml > .coredns.yaml
