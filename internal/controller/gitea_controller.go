@@ -83,7 +83,13 @@ func randString(n int) (string, error) {
 	return string(ret), nil
 }
 
-const objectFinalizer = "object.hyperspike.io/finalizer"
+const (
+	GCS             = "gcs"
+	S3              = "s3"
+	Gitea           = "gitea"
+	Metrics         = "metrics"
+	objectFinalizer = "object.hyperspike.io/finalizer"
+)
 
 // GiteaReconciler reconciles a Gitea object
 type GiteaReconciler struct {
@@ -393,7 +399,7 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-admin", map[string]string{"username": "gitea", "password": rs}, true); err != nil {
+	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-admin", map[string]string{"username": Gitea, "password": rs}, true); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-config", map[string]string{
@@ -583,10 +589,10 @@ echo '==== END GITEA CONFIGURATION ===='`,
 
 func labels(name string) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/name":      "gitea",
+		"app.kubernetes.io/name":      Gitea,
 		"app.kubernetes.io/instance":  name,
 		"app.kubernetes.io/component": "deployment",
-		"app.kubernetes.io/part-of":   "gitea",
+		"app.kubernetes.io/part-of":   Gitea,
 	}
 }
 
@@ -927,10 +933,10 @@ func storageSvc(gitea *hyperv1.Gitea, access, secret string) string {
 	storage := `TYPE=local`
 	if gitea.Spec.ObjectStorage != nil {
 		region := gitea.Spec.ObjectStorage.Region
-		if region == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+		if region == "" && gitea.Spec.ObjectStorage.Type == GCS {
 			region = "auto"
 		}
-		if region == "" && gitea.Spec.ObjectStorage.Type == "s3" {
+		if region == "" && gitea.Spec.ObjectStorage.Type == S3 {
 			if os.Getenv("AWS_REGION") != "" {
 				region = os.Getenv("AWS_REGION")
 			} else {
@@ -938,10 +944,10 @@ func storageSvc(gitea *hyperv1.Gitea, access, secret string) string {
 			}
 		}
 		endPoint := gitea.Spec.ObjectStorage.Endpoint
-		if endPoint == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+		if endPoint == "" && gitea.Spec.ObjectStorage.Type == GCS {
 			endPoint = "storage.googleapis.com"
 		}
-		if endPoint == "" && gitea.Spec.ObjectStorage.Type == "s3" {
+		if endPoint == "" && gitea.Spec.ObjectStorage.Type == S3 {
 			endPoint = fmt.Sprintf("s3.%s.amazonaws.com", region)
 		}
 		storage = `STORAGE_TYPE=minio
@@ -1178,16 +1184,12 @@ func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gite
 	return nil
 }
 
-const (
-	Metrics = "metrics"
-)
-
 func (r *GiteaReconciler) upsertServiceMonitor(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
 
 	labelSelector := labels(gitea.Name)
 	labelSelector["app.kubernetes.io/component"] = Metrics
-	labelSelector["app.kubernetes.io/app"] = "gitea"
+	labelSelector["app.kubernetes.io/app"] = Gitea
 
 	l := labels(gitea.Name)
 	l["app.kubernetes.io/component"] = Metrics
@@ -1241,7 +1243,7 @@ func (r *GiteaReconciler) upsertMetricsService(ctx context.Context, gitea *hyper
 
 	l := labels(gitea.Name)
 	l["app.kubernetes.io/component"] = Metrics
-	l["app.kubernetes.io/app"] = "gitea"
+	l["app.kubernetes.io/app"] = Gitea
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1398,14 +1400,14 @@ func (r *GiteaReconciler) upsertObject(ctx context.Context, gitea *hyperv1.Gitea
 	logger := log.FromContext(ctx)
 
 	endPoint := gitea.Spec.ObjectStorage.Endpoint
-	if endPoint == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+	if endPoint == "" && gitea.Spec.ObjectStorage.Type == GCS {
 		endPoint = "storage.googleapis.com"
 	}
 	region := gitea.Spec.ObjectStorage.Region
-	if region == "" && gitea.Spec.ObjectStorage.Type == "gcs" {
+	if region == "" && gitea.Spec.ObjectStorage.Type == GCS {
 		region = "auto"
 	}
-	if region == "" && gitea.Spec.ObjectStorage.Type == "s3" {
+	if region == "" && gitea.Spec.ObjectStorage.Type == S3 {
 		if os.Getenv("AWS_REGION") != "" {
 			region = os.Getenv("AWS_REGION")
 		} else {
@@ -1663,7 +1665,7 @@ func (r *GiteaReconciler) podUP(ctx context.Context, gitea *hyperv1.Gitea) (bool
 		return false, err
 	}
 	for _, pod := range pods.Items {
-		if pod.ObjectMeta.Labels["app.kubernetes.io/name"] != "gitea" {
+		if pod.ObjectMeta.Labels["app.kubernetes.io/name"] != Gitea {
 			continue
 		}
 		if pod.ObjectMeta.Labels["app.kubernetes.io/component"] == "deployment" && pod.ObjectMeta.Labels["app.kubernetes.io/instance"] == gitea.Name {
@@ -1923,7 +1925,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 						},
 						{
 							Name:         "configure-gitea",
-							Env:          env(map[string]string{"HOME": "/data/gitea/git"}), // "GITEA_ADMIN_USERNAME": "gitea", "GITEA_ADMIN_PASSWORD": "changeme"}),
+							Env:          env(map[string]string{"HOME": "/data/gitea/git"}), // "GITEA_ADMIN_USERNAME": Gitea, "GITEA_ADMIN_PASSWORD": "changeme"}),
 							Image:        image(gitea),
 							VolumeMounts: volumes(map[string]string{"init": "/usr/sbin"}),
 							Command: []string{
@@ -1936,7 +1938,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 					},
 					Containers: []corev1.Container{
 						{
-							Name:         "gitea",
+							Name:         Gitea,
 							Env:          env(map[string]string{"SSH_LISTEN_PORT": "2222", "SSH_PORT": "22", "HOME": "/data/gitea/git", "TMPDIR": "/tmp/gitea"}),
 							Image:        image(gitea),
 							VolumeMounts: volumes(nil),
