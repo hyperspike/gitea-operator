@@ -366,8 +366,13 @@ func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.
 			logger.Error(err, "failed to create statefulset")
 			return err
 		}
-	} else {
-		return err
+	} else if runner.Spec.Replicas != int(*sts.Spec.Replicas) {
+		r.Recorder.Event(runner, "Normal", "Updated", fmt.Sprintf("StatefulSet %s is updated replicas %d", runner.Name, runner.Spec.Replicas))
+		sts.Spec.Replicas = replicas
+		if err := r.Update(ctx, sts); err != nil {
+			logger.Error(err, "failed to update statefulset")
+			return err
+		}
 	}
 	return nil
 }
