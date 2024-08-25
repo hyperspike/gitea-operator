@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cloud.google.com/go/compute/metadata"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
@@ -304,21 +306,63 @@ func (aws *AWSObjectClient) Credentials(userName, bucketName string) (string, st
 }
 
 func (aws *AWSObjectClient) DeleteUser(userName string) error {
-	// Delete a user in AWS
-	_, err := aws.iam.DeleteUser(aws.ctx, &iam.DeleteUserInput{
-		UserName: &userName,
+	ret, err := aws.iam.ListPolicies(aws.ctx, &iam.ListPoliciesInput{
+		Scope: iamtypes.PolicyScopeTypeLocal,
 	})
 	if err != nil {
+		return err
+	}
+	policyArn := ""
+	for _, p := range ret.Policies {
+		if *p.PolicyName == userName {
+			policyArn = *p.Arn
+			break
+		}
+	}
+	var awsErr *iamtypes.NoSuchEntityException
+	if policyArn != "" {
+		_, err = aws.iam.DetachUserPolicy(aws.ctx, &iam.DetachUserPolicyInput{
+			PolicyArn: &policyArn,
+			UserName:  &userName,
+		})
+		if err != nil && !errors.As(err, &awsErr) {
+			return err
+		}
+		// Delete the policy
+		_, err = aws.iam.DeletePolicy(aws.ctx, &iam.DeletePolicyInput{
+			PolicyArn: &policyArn,
+		})
+		if err != nil && !errors.As(err, &awsErr) {
+			return err
+		}
+	}
+	// List all access keys
+	keys, err := aws.iam.ListAccessKeys(aws.ctx, &iam.ListAccessKeysInput{
+		UserName: &userName,
+	})
+	if err != nil && !errors.As(err, &awsErr) {
+		return err
+	}
+	// Delete the access key
+	if keys != nil && keys.AccessKeyMetadata != nil {
+		for _, key := range keys.AccessKeyMetadata {
+			_, err = aws.iam.DeleteAccessKey(aws.ctx, &iam.DeleteAccessKeyInput{
+				AccessKeyId: key.AccessKeyId,
+				UserName:    &userName,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	// Delete a user in AWS
+	_, err = aws.iam.DeleteUser(aws.ctx, &iam.DeleteUserInput{
+		UserName: &userName,
+	})
+	if err != nil && !errors.As(err, &awsErr) {
 		return err
 	}
 
-	// Delete the policy
-	_, err = aws.iam.DeletePolicy(aws.ctx, &iam.DeletePolicyInput{
-		PolicyArn: &userName,
-	})
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -349,8 +393,24 @@ func (aws *AWSObjectClient) CreateBucket(bucketName string) error {
 }
 
 func (aws *AWSObjectClient) DeleteBucket(bucketName string) error {
+	// Delete all objects in the bucket
+	objects, err := aws.svc.ListObjectsV2(aws.ctx, &s3.ListObjectsV2Input{
+		Bucket: &bucketName,
+	})
+	if err != nil {
+		return err
+	}
+	for _, obj := range objects.Contents {
+		_, err := aws.svc.DeleteObject(aws.ctx, &s3.DeleteObjectInput{
+			Bucket: &bucketName,
+			Key:    obj.Key,
+		})
+		if err != nil {
+			return err
+		}
+	}
 	// Delete a bucket in AWS
-	_, err := aws.svc.DeleteBucket(aws.ctx, &s3.DeleteBucketInput{
+	_, err = aws.svc.DeleteBucket(aws.ctx, &s3.DeleteBucketInput{
 		Bucket: &bucketName,
 	})
 	if err != nil {
