@@ -36,6 +36,7 @@ data "aws_iam_policy_document" "gitea_operator_policy_document" {
 			"iam:DetachUserPolicy",
 			"iam:PutUserPolicy",
 			"iam:DeleteUserPolicy",
+			"iam:DeletePolicy",
 			"iam:ListAttachedUserPolicies",
 			"iam:ListUsers",
 			"iam:ListAccessKeys",
@@ -45,6 +46,7 @@ data "aws_iam_policy_document" "gitea_operator_policy_document" {
 			"s3:DeleteBucket",
 			"s3:ListBucket",
 			"s3:ListAllMyBuckets",
+			"s3:DeleteObject",
 		]
 
 		resources = ["*"]

@@ -241,7 +241,7 @@ apiVersion: v1
 data:
   api_port: "8080"
   aws_region: eu-central-1
-  cluster_domain: cluster.local
+  cluster_domain: cluster.north
   cluster_history_entries: "1000"
   cluster_labels: application:spilo
   cluster_name_label: gke
