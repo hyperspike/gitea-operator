@@ -89,11 +89,11 @@ func (gcp *GCPObjectClient) Auth(opts *ObjectOpts) error {
 		return err
 	}
 	gcp.client = client
-	gcp.projectID, err = metadata.ProjectID()
+	gcp.projectID, err = metadata.ProjectIDWithContext(gcp.ctx)
 	if err != nil {
 		return err
 	}
-	gcp.projectNum, err = metadata.NumericProjectID()
+	gcp.projectNum, err = metadata.NumericProjectIDWithContext(gcp.ctx)
 	if err != nil {
 		return err
 	}

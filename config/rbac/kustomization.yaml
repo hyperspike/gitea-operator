@@ -13,6 +13,8 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- auth_editor_role.yaml
+- auth_viewer_role.yaml
 - runner_editor_role.yaml
 - runner_viewer_role.yaml
 - repo_editor_role.yaml

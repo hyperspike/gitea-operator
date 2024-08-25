@@ -1,5 +1,7 @@
 resource "aws_route53_zone" "sandbox" {
 	name = "aws-sandbox.hyperspike.io"
+
+	force_destroy = true
 }
 
 data "aws_iam_policy_document" "eks_external_dns_assume_role_policy" {

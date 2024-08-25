@@ -60,6 +60,7 @@ rules:
   - delete
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - cert-manager.io
@@ -92,6 +93,7 @@ rules:
 - apiGroups:
   - hyperspike.io
   resources:
+  - auths
   - gitea
   - orgs
   - repoes
@@ -109,6 +111,7 @@ rules:
 - apiGroups:
   - hyperspike.io
   resources:
+  - auths/finalizers
   - gitea/finalizers
   - orgs/finalizers
   - repoes/finalizers
@@ -119,6 +122,7 @@ rules:
 - apiGroups:
   - hyperspike.io
   resources:
+  - auths/status
   - gitea/status
   - orgs/status
   - repoes/status

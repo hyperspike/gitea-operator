@@ -7,6 +7,7 @@ resources:
 - bases/hyperspike.io_orgs.yaml
 - bases/hyperspike.io_repoes.yaml
 - bases/hyperspike.io_runners.yaml
+- bases/hyperspike.io_auths.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
@@ -21,6 +22,7 @@ patches:
 #- path: patches/cainjection_in_orgs.yaml
 #- path: patches/cainjection_in_repoes.yaml
 #- path: patches/cainjection_in_runners.yaml
+#- path: patches/cainjection_in_auths.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section

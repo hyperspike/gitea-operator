@@ -38,9 +38,10 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
+	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
+
 	hyperspikeiov1 "hyperspike.io/gitea-operator/api/v1"
 	"hyperspike.io/gitea-operator/internal/controller"
-	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -180,6 +181,13 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("gitea-runner-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Runner")
+		os.Exit(1)
+	}
+	if err = (&controller.AuthReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Auth")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
