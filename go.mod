@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/iam v1.2.0
 	cloud.google.com/go/storage v1.43.0
 	code.gitea.io/sdk/gitea v0.19.0
-	github.com/aws/aws-sdk-go-v2/config v1.27.29
+	github.com/aws/aws-sdk-go-v2/config v1.27.30
 	github.com/aws/aws-sdk-go-v2/service/iam v1.35.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.60.0
 	github.com/cert-manager/cert-manager v1.15.3
