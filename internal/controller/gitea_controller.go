@@ -1556,7 +1556,7 @@ func ptrInt(num int) *int64 {
 	return &num64
 }
 func ptrInt32(num int) *int32 {
-	num32 := int32(num)
+	num32 := int32(num) // #nosec G115
 	return &num32
 }
 
