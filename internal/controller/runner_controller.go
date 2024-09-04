@@ -218,7 +218,7 @@ func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.
 
 	disk := resource.NewQuantity(10*1024*1024*1024, resource.BinarySI)
 
-	replicas := ptr32(int32(runner.Spec.Replicas))
+	replicas := ptr32(int32(runner.Spec.Replicas)) // #nosec G115
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      runner.Name,
