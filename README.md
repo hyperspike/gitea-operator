@@ -114,6 +114,15 @@ make tunnel
 TAG=latest; make docker-build IMG=localhost:5000/controller:$TAG; docker push localhost:5000/controller:$TAG ; make IMG=localhost:5000/controller:$TAG build-installer  ; kubectl apply -f dist/install.yaml
 ```
 
+## Security
+
+To validate a container image, you can use the following command:
+
+```sh
+LATEST=$(curl -s https://api.github.com/repos/hyperspike/gitea-operator/releases/latest | jq -cr .tag_name)
+cosign verify ghcr.io/hyperspike/gitea-operator:$LATEST  --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/hyperspike/gitea-operator/.github/workflows/image.yaml@refs/tags/$LATEST
+```
+
 ## License
 
 Copyright 2024.
