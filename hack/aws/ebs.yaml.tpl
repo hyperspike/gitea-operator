@@ -487,7 +487,7 @@ spec:
               key: endpoint
               name: aws-meta
               optional: true
-        image: public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver:v1.33.0
+        image: public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver:v1.34.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 5
@@ -742,7 +742,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver:v1.33.0
+        image: public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver:v1.34.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -891,3 +891,5 @@ metadata:
     app.kubernetes.io/name: aws-ebs-csi-driver
   name: ebs-sc
 provisioner: ebs.csi.aws.com
+
+# vim:syntax=yaml

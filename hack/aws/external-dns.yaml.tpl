@@ -108,7 +108,7 @@ spec:
             runAsGroup: 65532
             runAsNonRoot: true
             runAsUser: 65532
-          image: registry.k8s.io/external-dns/external-dns:v0.14.2
+          image: registry.k8s.io/external-dns/external-dns:v0.15.0
           imagePullPolicy: IfNotPresent
           args:
             - --log-level=info
@@ -143,3 +143,5 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 5
+
+# vim:syntax=yaml

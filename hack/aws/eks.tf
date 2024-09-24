@@ -1,6 +1,7 @@
 resource "aws_eks_cluster" "eks" {
 	name = "eks"
 	role_arn = aws_iam_role.eks_role.arn
+	bootstrap_self_managed_addons = false
 
 	vpc_config {
 		subnet_ids = aws_subnet.eks.*.id
@@ -124,4 +125,10 @@ resource "local_file" "kubeconfig" {
 	filename = "${path.module}/kubeconfig"
 	content  = data.template_file.kubeconfig.rendered
 	file_permission = "0600"
+}
+
+resource "aws_eks_addon" "coredns" {
+	cluster_name = aws_eks_cluster.eks.name
+	addon_name   = "coredns"
+	addon_version = "v1.11.3-eksbuild.1"
 }
