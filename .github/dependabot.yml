@@ -12,3 +12,11 @@ updates:
   directory: "/"
   schedule:
     interval: "daily"
+  groups:
+    aws:
+      patterns:
+      - "^github.com/aws/aws-sdk-go-v2/.*$"
+    google:
+      patterns:
+      - "^github.com/google/.*$"
+
