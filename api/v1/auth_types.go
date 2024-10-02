@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,11 +26,28 @@ import (
 
 // AuthSpec defines the desired state of Auth
 type AuthSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +kubebuilder:validation:Required
+	Provider string `json:"provider"`
 
-	// Foo is an example field of Auth. Edit auth_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// The client ID for the OIDC provider
+	// +kubebuilder:validation:Required
+	ClientID corev1.SecretKeySelector `json:"clientID"`
+	// The client secret for the OIDC provider
+	// +kubebuilder:validation:Required
+	ClientSecret corev1.SecretKeySelector `json:"clientSecret"`
+
+	// The URL to the OIDC provider (e.g. https://oidc.example.com)
+	AutoDiscoveryURL string `json:"autoDiscoveryURL"`
+
+	// Scopes to request from the OIDC provider
+	Scopes []string `json:"scopes"`
+
+	// Group Claim name to use for group membership
+	GroupClaimName string `json:"groupClaimName"`
+
+	// The Gitea instance to add the OIDC authentication to
+	// +kubebuilder:validation:Required
+	Instance InstanceType `json:"instance"`
 }
 
 // AuthStatus defines the observed state of Auth

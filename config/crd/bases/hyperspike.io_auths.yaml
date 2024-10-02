@@ -39,10 +39,87 @@ spec:
           spec:
             description: AuthSpec defines the desired state of Auth
             properties:
-              foo:
-                description: Foo is an example field of Auth. Edit auth_types.go to
-                  remove/update
+              autoDiscoveryURL:
+                description: The URL to the OIDC provider (e.g. https://oidc.example.com)
                 type: string
+              clientID:
+                description: The client ID for the OIDC provider
+                properties:
+                  key:
+                    description: The key of the secret to select from.  Must be a
+                      valid secret key.
+                    type: string
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  optional:
+                    description: Specify whether the Secret or its key must be defined
+                    type: boolean
+                required:
+                - key
+                type: object
+                x-kubernetes-map-type: atomic
+              clientSecret:
+                description: The client secret for the OIDC provider
+                properties:
+                  key:
+                    description: The key of the secret to select from.  Must be a
+                      valid secret key.
+                    type: string
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  optional:
+                    description: Specify whether the Secret or its key must be defined
+                    type: boolean
+                required:
+                - key
+                type: object
+                x-kubernetes-map-type: atomic
+              groupClaimName:
+                description: Group Claim name to use for group membership
+                type: string
+              instance:
+                description: The Gitea instance to add the OIDC authentication to
+                properties:
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                type: object
+              provider:
+                type: string
+              scopes:
+                description: Scopes to request from the OIDC provider
+                items:
+                  type: string
+                type: array
+            required:
+            - autoDiscoveryURL
+            - clientID
+            - clientSecret
+            - groupClaimName
+            - instance
+            - provider
+            - scopes
             type: object
           status:
             description: AuthStatus defines the observed state of Auth
