@@ -45,7 +45,7 @@ type AuthSpec struct {
 	// Group Claim name to use for group membership
 	GroupClaimName string `json:"groupClaimName"`
 
-	// The Gitea instance to add the OIDC authenticaion to
+	// The Gitea instance to add the OIDC authentication to
 	// +kubebuilder:validation:Required
 	Instance InstanceType `json:"instance"`
 }

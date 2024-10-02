@@ -92,7 +92,7 @@ spec:
                 description: Group Claim name to use for group membership
                 type: string
               instance:
-                description: The Gitea instance to add the OIDC authenticaion to
+                description: The Gitea instance to add the OIDC authentication to
                 properties:
                   labels:
                     additionalProperties:
