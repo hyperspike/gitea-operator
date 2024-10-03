@@ -9,7 +9,7 @@ require (
 	code.gitea.io/sdk/gitea v0.19.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.39
 	github.com/aws/aws-sdk-go-v2/service/iam v1.36.3
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.63.3
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.64.0
 	github.com/cert-manager/cert-manager v1.16.0
 	github.com/minio/minio-go/v7 v7.0.77
 	github.com/onsi/ginkgo/v2 v2.20.2
