@@ -51,7 +51,7 @@ type GiteaSpec struct {
 	PrometheusLabels map[string]string `json:"prometheusLabels,omitempty"`
 
 	// Override the operator set image
-	// +kubebuilder:default:="gitea/gitea:1.22.2"
+	// +kubebuilder:default:="gitea/gitea:1.22.3"
 	Image string `json:"image,omitempty"`
 
 	// Use Valkey
