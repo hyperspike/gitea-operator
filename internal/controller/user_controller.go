@@ -254,8 +254,10 @@ func (r *UserReconciler) createUser(ctx context.Context, usr *hyperv1.User, gitU
 }
 
 func (r *UserReconciler) listGitUsers(ctx context.Context) ([]*g.User, error) {
+	logger := log.FromContext(ctx)
 	users, _, err := r.h.AdminListUsers(g.AdminListUsersOptions{})
 	if err != nil {
+		logger.Error(err, "failed to list users")
 		return nil, err
 	}
 	return users, nil
