@@ -14,9 +14,9 @@ require (
 	github.com/minio/minio-go/v7 v7.0.78
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.77.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.77.2
 	github.com/zalando/postgres-operator v1.13.0
-	google.golang.org/api v0.201.0
+	google.golang.org/api v0.202.0
 	hyperspike.io/valkey-operator v0.0.38
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
@@ -129,9 +129,9 @@ require (
 	golang.org/x/time v0.7.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto v0.0.0-20241007155032-5fefd90f89a9 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240930140551-af27646dc61f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241007155032-5fefd90f89a9 // indirect
+	google.golang.org/genproto v0.0.0-20241015192408-796eee8c2d53 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241007155032-5fefd90f89a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b2c93a // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
