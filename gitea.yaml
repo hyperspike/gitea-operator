@@ -10,14 +10,14 @@ spec:
   #objectStorage:
   #  type: s3
   certIssuer: selfsigned
-  prometheus: false
+  prometheus: true
   prometheusLabels:
     prometheus: prometheus
-  valkey: false
+  valkey: true
   ingress:
     #annotations:
     #  cert-manager.io/cluster-issuer: letsencrypt
-    host: git.local
+    host: git.local.net
 ---
 apiVersion: hyperspike.io/v1
 kind: User
@@ -41,24 +41,24 @@ metadata:
 type: Opaque
 stringData:
   password: test1234
-#---
-#apiVersion: hyperspike.io/v1
-#kind: Org
-#metadata:
-#  labels:
-#    app.kubernetes.io/name: gitea-operator
-#    app.kubernetes.io/managed-by: kustomize
-#  name: test
-#spec:
-#  description: Test Env for Operator
-#  instance:
-#    name: gitea
-#  teams:
-#  - name: Test
-#    permission: admin
-#    includeAllRepos: true
-#    members:
-#    - demo
+---
+apiVersion: hyperspike.io/v1
+kind: Org
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: test
+spec:
+  description: Test Env for Operator
+  instance:
+    name: git
+  teams:
+  - name: Test
+    permission: admin
+    includeAllRepos: true
+    members:
+    - demo
 #---
 #apiVersion: hyperspike.io/v1
 #kind: Repo

@@ -97,6 +97,28 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return ctrl.Result{}, err
 		}
 	}
+	users, err := r.listUsers(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	gitUsers, err := r.listGitUsers(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for _, u := range gitUsers {
+		found := false
+		for _, usr := range users {
+			if usr.Name == u.UserName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			if err := r.createUser(ctx, user, u); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -130,6 +152,9 @@ func compareUsers(u1, u2 *g.User) bool {
 	if u1.FullName != u2.FullName {
 		return false
 	}
+	if u1.IsAdmin != u2.IsAdmin {
+		return false
+	}
 	return true
 }
 
@@ -157,16 +182,19 @@ func (r *UserReconciler) upsertUser(ctx context.Context, user *hyperv1.User) err
 	want := &g.User{
 		Email:    user.Spec.Email,
 		FullName: user.Spec.FullName,
+		IsAdmin:  user.Spec.Admin,
 	}
 	if fetched != nil && res.StatusCode == 200 {
 		if err := r.reconcileSSHKeys(user); err != nil {
 			return err
 		}
 		if !compareUsers(want, fetched) {
+			logger.Info("updating user", "user", user.Name, "instance", user.Spec.Instance.Name)
 			if _, err := r.h.AdminEditUser(user.Name, g.EditUserOption{
 				Email:     &user.Spec.Email,
 				FullName:  &user.Spec.FullName,
 				LoginName: loginName,
+				Admin:     ptrBool(user.Spec.Admin),
 			}); err != nil {
 				logger.Error(err, "failed to update user", "user", user.Name)
 				return err
@@ -192,6 +220,7 @@ func (r *UserReconciler) upsertUser(ctx context.Context, user *hyperv1.User) err
 		logger.Error(err, "failed to create user", "user", user.Name)
 		return err
 	}
+
 	if err := r.reconcileSSHKeys(user); err != nil {
 		logger.Error(err, "failed to add ssh keys", "user", user.Name)
 		return err
@@ -200,6 +229,44 @@ func (r *UserReconciler) upsertUser(ctx context.Context, user *hyperv1.User) err
 		return err
 	}
 	return err
+}
+
+func (r *UserReconciler) createUser(ctx context.Context, usr *hyperv1.User, gitUser *g.User) error {
+	logger := log.FromContext(ctx)
+	user := &hyperv1.User{
+		ObjectMeta: ctrl.ObjectMeta{
+			Name:      gitUser.UserName,
+			Namespace: usr.Namespace,
+		},
+		Spec: hyperv1.UserSpec{
+			Email:    gitUser.Email,
+			FullName: gitUser.FullName,
+			SourceId: gitUser.SourceID,
+			Admin:    gitUser.IsAdmin,
+			Instance: usr.Spec.Instance,
+		},
+	}
+	if err := r.Create(ctx, user); err != nil {
+		logger.Error(err, "failed to create user", "user", gitUser.UserName)
+		return err
+	}
+	return nil
+}
+
+func (r *UserReconciler) listGitUsers(ctx context.Context) ([]*g.User, error) {
+	users, _, err := r.h.AdminListUsers(g.AdminListUsersOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *UserReconciler) listUsers(ctx context.Context) ([]hyperv1.User, error) {
+	users := &hyperv1.UserList{}
+	if err := r.List(ctx, users); err != nil {
+		return nil, err
+	}
+	return users.Items, nil
 }
 
 func (r *UserReconciler) reconcileSSHKeys(user *hyperv1.User) error {

@@ -1,7 +1,5 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.31.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -25,8 +23,10 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-K8S_VERSION ?= 1.31.0
-CILIUM_VERSION ?= 1.16.1
+K8S_VERSION ?= 1.31.2
+CILIUM_VERSION ?= 1.16.3
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION ?= $(K8S_VERSION)
 
 V ?= 0
 ifeq ($(V), 1)

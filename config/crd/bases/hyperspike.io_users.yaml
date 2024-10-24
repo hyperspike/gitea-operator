@@ -46,6 +46,8 @@ spec:
           spec:
             description: UserSpec defines the desired state of User
             properties:
+              admin:
+                type: boolean
               email:
                 type: string
               fullName:

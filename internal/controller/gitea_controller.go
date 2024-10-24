@@ -114,6 +114,7 @@ type GiteaReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings;roles,verbs=create;delete;get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -252,6 +253,12 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertGiteaSa(ctx, gitea); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.upsertGiteaRole(ctx, gitea); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.upsertGiteaRoleBinding(ctx, gitea); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-init", map[string]string{
@@ -1184,6 +1191,92 @@ func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gite
 	return nil
 }
 
+func (r *GiteaReconciler) upsertGiteaRole(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name,
+			Namespace: gitea.Namespace,
+			Labels:    labels(gitea.Name),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"hyperspike.io"},
+				Resources: []string{"auths"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+			{
+				APIGroups: []string{"hyperspike.io"},
+				Resources: []string{"auths/status"},
+				Verbs:     []string{"get", "update", "patch"},
+			},
+			{
+				APIGroups: []string{"hyperspike.io"},
+				Resources: []string{"auths/finalizers"},
+				Verbs:     []string{"update"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, role, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, role)
+	if err != nil && errors.IsNotFound(err) {
+		r.Recorder.Event(gitea, "Normal", "Created",
+			fmt.Sprintf("Role %s is created", gitea.Name))
+		if err := r.Create(ctx, role); err != nil {
+			logger.Error(err, "failed to create role")
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
+func (r *GiteaReconciler) upsertGiteaRoleBinding(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name,
+			Namespace: gitea.Namespace,
+			Labels:    labels(gitea.Name),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      gitea.Name,
+				Namespace: gitea.Namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     gitea.Name,
+		},
+	}
+	if err := controllerutil.SetControllerReference(gitea, rb, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, rb)
+	if err != nil && errors.IsNotFound(err) {
+		r.Recorder.Event(gitea, "Normal", "Created",
+			fmt.Sprintf("RoleBinding %s is created", gitea.Name))
+		if err := r.Create(ctx, rb); err != nil {
+			logger.Error(err, "failed to create rolebinding")
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
 func (r *GiteaReconciler) upsertServiceMonitor(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
 
@@ -1602,6 +1695,10 @@ func image(gitea *hyperv1.Gitea) string {
 	return gitea.Spec.Image
 }
 
+func imageSpoon() string {
+	return "localhost:5000/controller:spoon-8"
+}
+
 var vol = map[string]string{
 	"temp": "/tmp",
 	"data": "/data",
@@ -1974,6 +2071,48 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 								},
 							},
 						},
+						{
+							Name:         "gitea-spoon",
+							Image:        imageSpoon(),
+							Env:          env(map[string]string{"HOME": "/data/gitea/git", "TMPDIR": "/tmp/gitea"}),
+							VolumeMounts: volumes(nil),
+							Command: []string{
+								"/manager",
+							},
+							Args: []string{
+								"--metrics-bind-address=:8443",
+								"--health-probe-bind-address=:8081",
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromInt(8081),
+									},
+								},
+								InitialDelaySeconds: 8,
+								PeriodSeconds:       5,
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readyz",
+										Port: intstr.FromInt(8081),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+							},
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:                ptrInt(1000),
+								AllowPrivilegeEscalation: ptrBool(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{
+										"ALL",
+									},
+								},
+							},
+						},
 					},
 					Volumes: []corev1.Volume{
 						{
@@ -2111,6 +2250,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 	sts.Spec.Template.Spec.InitContainers[1].Env = append(sts.Spec.Template.Spec.InitContainers[1].Env, dbs...)
 	sts.Spec.Template.Spec.InitContainers[2].Env = append(sts.Spec.Template.Spec.InitContainers[2].Env, dbs...)
 	sts.Spec.Template.Spec.Containers[0].Env = append(sts.Spec.Template.Spec.Containers[0].Env, dbs...)
+	sts.Spec.Template.Spec.Containers[1].Env = append(sts.Spec.Template.Spec.Containers[1].Env, dbs...)
 	envs := []corev1.EnvVar{
 		{
 			Name:  "GITEA__SERVER__START_SSH_SERVER",

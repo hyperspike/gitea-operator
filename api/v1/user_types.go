@@ -42,6 +42,8 @@ type UserSpec struct {
 
 	Visibility string `json:"visibility,omitempty"`
 
+	Admin bool `json:"admin,omitempty"`
+
 	// a secret reference to the secret where the password is stored
 	Password corev1.SecretKeySelector `json:"password,omitempty"`
 
