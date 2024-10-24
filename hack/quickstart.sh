@@ -4,13 +4,24 @@ export SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null &&
 
 kubectl apply -f $SCRIPT_DIR/postgres-operator.yaml
 if [ ! -z ${VALKEY} ]; then
-	kubectl apply -f https://raw.githubusercontent.com/hyperspike/valkey-operator/main/dist/install.yaml
+	LATEST=$(curl -s https://api.github.com/repos/hyperspike/valkey-operator/releases/latest | jq -cr .tag_name)
+	curl -sL https://github.com/hyperspike/valkey-operator/releases/download/$LATEST/install.yaml | kubectl create -f -
 fi
 if [ ! -z ${TLS} ]; then
 	LATEST=$(curl -s curl https://api.github.com/repos/cert-manager/cert-manager/releases/latest  | jq -cr .tag_name)
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${LATEST}/cert-manager.yaml
-	sleep 2
-	kubectl apply -f $SCRIPT_DIR/issuer.yaml
+	rc=1
+	tries=0
+	while [ $rc -ne 0 ] && [ $tries -ne 25 ]; do
+		sleep 1
+		kubectl apply -f $SCRIPT_DIR/issuer.yaml
+		rc=$?
+		tries=$((tries+1))
+	done
+	if [ $rc -ne 0 ]; then
+		echo "Failed to create cert-manager issuer"
+		exit 1
+	fi
 fi
 if [ ! -z ${PROMETHEUS} ]; then
 	LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
