@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.5.2
-	cloud.google.com/go/iam v1.2.1
+	cloud.google.com/go/iam v1.2.2
 	cloud.google.com/go/storage v1.45.0
 	code.gitea.io/sdk/gitea v0.19.0
 	github.com/aws/aws-sdk-go-v2/config v1.28.0
@@ -16,18 +16,18 @@ require (
 	github.com/onsi/gomega v1.34.2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.77.2
 	github.com/zalando/postgres-operator v1.13.0
-	google.golang.org/api v0.202.0
+	google.golang.org/api v0.203.0
 	hyperspike.io/valkey-operator v0.0.38
-	k8s.io/api v0.31.1
-	k8s.io/apimachinery v0.31.1
-	k8s.io/client-go v0.31.1
+	k8s.io/api v0.31.2
+	k8s.io/apimachinery v0.31.2
+	k8s.io/client-go v0.31.2
 	sigs.k8s.io/controller-runtime v0.19.1
 )
 
 require (
 	cel.dev/expr v0.16.1 // indirect
 	cloud.google.com/go v0.116.0 // indirect
-	cloud.google.com/go/auth v0.9.8 // indirect
+	cloud.google.com/go/auth v0.9.9 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/monitoring v1.21.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.24.1 // indirect
