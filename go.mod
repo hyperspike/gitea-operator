@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.37.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.66.2
 	github.com/cert-manager/cert-manager v1.16.1
-	github.com/minio/minio-go/v7 v7.0.79
+	github.com/minio/minio-go/v7 v7.0.80
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.77.2
