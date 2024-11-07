@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.35.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.1
 	github.com/zalando/postgres-operator v1.13.0
-	google.golang.org/api v0.204.0
+	google.golang.org/api v0.205.0
 	hyperspike.io/valkey-operator v0.0.38
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
@@ -27,7 +27,7 @@ require (
 require (
 	cel.dev/expr v0.16.1 // indirect
 	cloud.google.com/go v0.116.0 // indirect
-	cloud.google.com/go/auth v0.10.0 // indirect
+	cloud.google.com/go/auth v0.10.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.5 // indirect
 	cloud.google.com/go/monitoring v1.21.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.24.1 // indirect
