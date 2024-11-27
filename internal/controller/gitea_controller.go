@@ -772,7 +772,7 @@ func (r *GiteaReconciler) upsertValkey(ctx context.Context, gitea *hyperv1.Gitea
 			Labels:    l,
 		},
 		Spec: valkeyv1.ValkeySpec{
-			Nodes:             3,
+			Shards:            3,
 			VolumePermissions: true,
 			Prometheus:        gitea.Spec.Prometheus,
 			PrometheusLabels:  gitea.Spec.PrometheusLabels,
