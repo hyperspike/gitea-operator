@@ -19,7 +19,7 @@ require (
 	google.golang.org/api v0.211.0
 	hyperspike.io/valkey-operator v0.0.41
 	k8s.io/api v0.31.3
-	k8s.io/apimachinery v0.31.3
+	k8s.io/apimachinery v0.31.4
 	k8s.io/client-go v0.31.3
 	sigs.k8s.io/controller-runtime v0.19.3
 )
