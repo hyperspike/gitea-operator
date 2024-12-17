@@ -182,10 +182,6 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 			}
 		}
 	}
-	pgUp, _ := r.pgRunning(ctx, gitea)
-	if !pgUp {
-		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
-	}
 	if gitea.Spec.Valkey {
 		if err := r.upsertValkey(ctx, gitea); err != nil {
 			return ctrl.Result{}, err
@@ -194,6 +190,11 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 		if !vkUp {
 			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 		}
+	}
+	// spool up valkey and postgres in parallel
+	pgUp, _ := r.pgRunning(ctx, gitea)
+	if !pgUp {
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 	if gitea.Spec.TLS {
 		if err := r.upsertCertificate(ctx, gitea); err != nil {
@@ -588,7 +589,7 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	}
 	logger.Info("api is up", "sts", gitea.Name)
 	if err := r.adminToken(ctx, gitea); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -852,11 +853,7 @@ func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Git
 		TargetPort: intstr.FromString("http"),
 	}
 	if gitea.Spec.TLS {
-		port = corev1.ServicePort{
-			Name:       "http",
-			Port:       443,
-			TargetPort: intstr.FromString("http"),
-		}
+		port.Port = 443
 	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1696,7 +1693,7 @@ func image(gitea *hyperv1.Gitea) string {
 }
 
 func imageSpoon() string {
-	return "localhost:5000/controller:spoon-8"
+	return "ghcr.io/hyperspike/gitea-spoon:v0.0.3"
 }
 
 var vol = map[string]string{
@@ -1861,7 +1858,7 @@ func (r *GiteaReconciler) adminToken(ctx context.Context, gitea *hyperv1.Gitea) 
 		return err
 	}
 	tok, ok := secret.Data["token"]
-	if ok && len(tok) != 0 {
+	if ok && len(tok) != 0 && string(tok) != "" {
 		logger.Info("token detected, skipping", "Secret", gitea.Name+"-admin")
 		return nil
 	}
@@ -1905,12 +1902,20 @@ func (r *GiteaReconciler) adminToken(ctx context.Context, gitea *hyperv1.Gitea) 
 		logger.Error(err, "failed json unmarshal "+url)
 		return err
 	}
+	if tresp.Token == "" {
+		logger.Error(err, "token not found in response", "response", string(body))
+		return fmt.Errorf("token not found in response")
+	}
 	secret.Data["token"] = []byte(tresp.Token)
 	if err := r.Update(ctx, secret); err != nil {
 		logger.Error(err, "failed to update secret "+gitea.Name+"-admin."+gitea.Namespace)
 		return err
 	}
 	r.Recorder.Event(gitea, "Normal", "Token", fmt.Sprintf("Admin token created added to %s secret", gitea.Name+"-admin"))
+	if err := r.setCondition(ctx, gitea, "ApiToken", "True", "ApiToken", "Api Token Provisioned"); err != nil {
+		logger.Error(err, "Gitea status update failed.")
+		return err
+	}
 
 	return nil
 }
@@ -2180,6 +2185,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 		},
 	}
 	sts.Spec.Template.Spec.InitContainers[2].Env = append(sts.Spec.Template.Spec.InitContainers[2].Env, admins...)
+	sts.Spec.Template.Spec.Containers[1].Env = append(sts.Spec.Template.Spec.Containers[1].Env, admins...)
 	if gitea.Spec.TLS {
 		sts.Spec.Template.Spec.Volumes = append(sts.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name: "tls",

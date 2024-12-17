@@ -10,7 +10,7 @@ spec:
   #objectStorage:
   #  type: s3
   certIssuer: selfsigned
-  prometheus: true
+  prometheus: false
   prometheusLabels:
     prometheus: prometheus
   valkey: true
@@ -57,29 +57,30 @@ spec:
   - name: Test
     permission: admin
     includeAllRepos: true
+    createOrgRepo: true
     members:
     - demo
-#---
-#apiVersion: hyperspike.io/v1
-#kind: Repo
-#metadata:
-#  labels:
-#    app.kubernetes.io/name: gitea-operator
-#    app.kubernetes.io/managed-by: kustomize
-#  name: repo-sample
-#spec:
-#  private: true
-#  org:
-#    name: test
-#---
-#apiVersion: hyperspike.io/v1
-#kind: Repo
-#metadata:
-#  labels:
-#    app.kubernetes.io/name: gitea-operator
-#    app.kubernetes.io/managed-by: kustomize
-#  name: two
-#spec:
-#  private: true
-#  org:
-#    name: test
+---
+apiVersion: hyperspike.io/v1
+kind: Repo
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: repo-sample
+spec:
+  private: true
+  org:
+    name: test
+---
+apiVersion: hyperspike.io/v1
+kind: Repo
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: infra
+spec:
+  private: true
+  org:
+    name: test
