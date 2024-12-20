@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.36.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.79.2
 	github.com/zalando/postgres-operator v1.13.0
-	google.golang.org/api v0.213.0
+	google.golang.org/api v0.214.0
 	hyperspike.io/valkey-operator v0.0.42
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0
@@ -118,7 +118,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
-	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
