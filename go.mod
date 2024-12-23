@@ -1,6 +1,7 @@
 module hyperspike.io/gitea-operator
 
-go 1.23.0
+go 1.23.4
+
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
 	cloud.google.com/go/iam v1.3.0
