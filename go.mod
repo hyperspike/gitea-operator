@@ -1,6 +1,6 @@
 module hyperspike.io/gitea-operator
 
-go 1.23.0
+go 1.23.4
 
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
@@ -15,7 +15,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.1
 	github.com/onsi/gomega v1.36.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.79.2
-	github.com/zalando/postgres-operator v1.13.0
+	github.com/zalando/postgres-operator v1.14.0
 	google.golang.org/api v0.214.0
 	hyperspike.io/valkey-operator v0.0.42
 	k8s.io/api v0.32.0
