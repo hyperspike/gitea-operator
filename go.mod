@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.6.0
 	cloud.google.com/go/iam v1.3.1
 	cloud.google.com/go/storage v1.48.0
-	code.gitea.io/sdk/gitea v0.19.0
+	code.gitea.io/sdk/gitea v0.20.0
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/service/iam v1.38.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.71.1
@@ -30,6 +30,7 @@ require (
 	cloud.google.com/go/auth v0.13.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.6 // indirect
 	cloud.google.com/go/monitoring v1.21.2 // indirect
+	github.com/42wim/httpsig v1.2.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.25.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.48.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.48.1 // indirect
