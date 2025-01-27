@@ -17,7 +17,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.79.2
 	github.com/zalando/postgres-operator v1.14.0
 	google.golang.org/api v0.218.0
-	hyperspike.io/valkey-operator v0.0.50
+	hyperspike.io/valkey-operator v0.0.51
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
 	k8s.io/client-go v0.32.1
