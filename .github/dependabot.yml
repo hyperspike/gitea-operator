@@ -15,8 +15,8 @@ updates:
   groups:
     aws:
       patterns:
-      - "^github.com/aws/aws-sdk-go-v2/.*$"
+      - "github.com/aws/aws-sdk-go-v2/*"
     google:
       patterns:
-      - "^github.com/google/.*$"
+      - "github.com/google/*"
 
