@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.6
 	github.com/aws/aws-sdk-go-v2/service/iam v1.39.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.76.1
-	github.com/cert-manager/cert-manager v1.17.0
+	github.com/cert-manager/cert-manager v1.17.1
 	github.com/minio/minio-go/v7 v7.0.85
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
