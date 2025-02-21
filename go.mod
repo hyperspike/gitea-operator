@@ -14,7 +14,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.85
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1
 	github.com/zalando/postgres-operator v1.14.0
 	google.golang.org/api v0.221.0
 	hyperspike.io/valkey-operator v0.0.57
