@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1
 	github.com/zalando/postgres-operator v1.14.0
-	google.golang.org/api v0.221.0
+	google.golang.org/api v0.222.0
 	hyperspike.io/valkey-operator v0.0.58
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
@@ -131,7 +131,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4fd4 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250212204824-5a70512c5d8b // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
