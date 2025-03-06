@@ -12,12 +12,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.77.1
 	github.com/cert-manager/cert-manager v1.17.1
 	github.com/minio/minio-go/v7 v7.0.87
-	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/ginkgo/v2 v2.23.0
 	github.com/onsi/gomega v1.36.2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1
 	github.com/zalando/postgres-operator v1.14.0
 	google.golang.org/api v0.223.0
-  hyperspike.io/valkey-operator v0.0.59
+	hyperspike.io/valkey-operator v0.0.59
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
 	k8s.io/client-go v0.32.2
