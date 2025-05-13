@@ -68,7 +68,7 @@ func NewObjectClient(ctx context.Context, opts *ObjectOpts) (ObjectClient, error
 		}
 		return m, nil
 	default:
-		return nil, fmt.Errorf("Cloud Provider %s, not supported", opts.CloudProvider)
+		return nil, fmt.Errorf("cloud provider %s, not supported", opts.CloudProvider)
 	}
 }
 

@@ -1734,15 +1734,15 @@ func (r *GiteaReconciler) restart(ctx context.Context, gitea *hyperv1.Gitea) err
 		return nil
 	}
 	for _, pod := range pods.Items {
-		if pod.ObjectMeta.Labels["app.kubernetes.io/name"] != gitea.Name {
+		if pod.Labels["app.kubernetes.io/name"] != gitea.Name {
 			continue
 		}
-		if pod.ObjectMeta.Labels["app.kubernetes.io/component"] == "deployment" && pod.ObjectMeta.Labels["app.kubernetes.io/instance"] == gitea.Name {
+		if pod.Labels["app.kubernetes.io/component"] == "deployment" && pod.Labels["app.kubernetes.io/instance"] == gitea.Name {
 			if err := r.Delete(ctx, &pod); err != nil {
 				logger.Error(err, "failed deleting pod")
 			}
 			r.Recorder.Event(gitea, "Normal", "Restarting",
-				fmt.Sprintf("Secret update requires restart of pod %s", pod.ObjectMeta.Name))
+				fmt.Sprintf("Secret update requires restart of pod %s", pod.Name))
 		}
 	}
 	return nil
@@ -1759,10 +1759,10 @@ func (r *GiteaReconciler) podUP(ctx context.Context, gitea *hyperv1.Gitea) (bool
 		return false, err
 	}
 	for _, pod := range pods.Items {
-		if pod.ObjectMeta.Labels["app.kubernetes.io/name"] != Gitea {
+		if pod.Labels["app.kubernetes.io/name"] != Gitea {
 			continue
 		}
-		if pod.ObjectMeta.Labels["app.kubernetes.io/component"] == "deployment" && pod.ObjectMeta.Labels["app.kubernetes.io/instance"] == gitea.Name {
+		if pod.Labels["app.kubernetes.io/component"] == "deployment" && pod.Labels["app.kubernetes.io/instance"] == gitea.Name {
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == "Ready" && cond.Status == "True" {
 					if err := r.setCondition(ctx, gitea, "InstanceReady", "True", "InstanceReady", "Pod Up"); err != nil {
