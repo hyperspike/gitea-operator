@@ -19,4 +19,8 @@ updates:
     google:
       patterns:
       - "github.com/google/*"
+      - "google.golang.org/*"
+    kubernetes:
+      patterns:
+      - "k8s.io/*"
 
