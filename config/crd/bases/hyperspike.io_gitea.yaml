@@ -74,7 +74,7 @@ spec:
                 description: Create a loadbalancer for ssh access
                 type: boolean
               image:
-                default: gitea/gitea:1.22.6
+                default: gitea/gitea:1.24.6
                 description: Override the operator set image
                 type: string
               ingress:

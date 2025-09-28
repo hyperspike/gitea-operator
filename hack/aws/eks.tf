@@ -13,6 +13,14 @@ resource "aws_eks_cluster" "eks" {
 		bootstrap_cluster_creator_admin_permissions = true
 	}
 
+  encryption_config {
+    provider {
+      key_arn = aws_kms_key.eks_encryption.arn
+    }
+    resources = ["secrets"]
+  }
+
+
 	depends_on = [
 		aws_iam_role_policy_attachment.eks-EKSClusterPolicy,
 		aws_iam_role_policy_attachment.eks-EKSVPCPolicy
