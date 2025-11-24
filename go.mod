@@ -18,9 +18,9 @@ require (
 	github.com/zalando/postgres-operator v1.14.0
 	google.golang.org/api v0.252.0
 	hyperspike.io/valkey-operator v0.0.60
-	k8s.io/api v0.34.1
-	k8s.io/apimachinery v0.34.1
-	k8s.io/client-go v0.34.1
+	k8s.io/api v0.34.2
+	k8s.io/apimachinery v0.34.2
+	k8s.io/client-go v0.34.2
 	sigs.k8s.io/controller-runtime v0.22.3
 )
 
