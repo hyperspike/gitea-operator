@@ -1305,7 +1305,8 @@ func (r *GiteaReconciler) upsertServiceMonitor(ctx context.Context, gitea *hyper
 		},
 	}
 	if gitea.Spec.TLS {
-		sm.Spec.Endpoints[0].Scheme = "https"
+		scheme := monitoringv1.SchemeHTTPS
+		sm.Spec.Endpoints[0].Scheme = &scheme
 		sm.Spec.Endpoints[0].TLSConfig = &monitoringv1.TLSConfig{
 			SafeTLSConfig: monitoringv1.SafeTLSConfig{
 				InsecureSkipVerify: func(b bool) *bool { return &b }(true),
