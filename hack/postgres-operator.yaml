@@ -352,7 +352,7 @@ spec:
       - env:
         - name: CONFIG_MAP_NAME
           value: postgres-operator
-        image: ghcr.io/zalando/postgres-operator:v1.13.0
+        image: ghcr.io/zalando/postgres-operator:v1.15.0
         imagePullPolicy: IfNotPresent
         name: postgres-operator
         resources:
