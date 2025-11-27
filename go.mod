@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
 	cloud.google.com/go/iam v1.5.3
-	cloud.google.com/go/storage v1.57.0
+	cloud.google.com/go/storage v1.57.2
 	code.gitea.io/sdk/gitea v0.22.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.2
 	github.com/aws/aws-sdk-go-v2/service/iam v1.52.2
