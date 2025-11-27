@@ -23,8 +23,8 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-K8S_VERSION ?= 1.33.4
-CILIUM_VERSION ?= 1.18.2
+K8S_VERSION ?= 1.34.2
+CILIUM_VERSION ?= 1.18.4
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= $(K8S_VERSION)
 
