@@ -1408,7 +1408,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: localhost:5000/gitea-operator:1
+        image: ghcr.io/hyperspike/gitea-operator:v0.0.14
         livenessProbe:
           httpGet:
             path: /healthz
