@@ -95,6 +95,7 @@ rules:
   resources:
   - auths
   - gitea
+  - migraterepoes
   - orgs
   - repoes
   - runners
@@ -113,6 +114,7 @@ rules:
   resources:
   - auths/finalizers
   - gitea/finalizers
+  - migraterepoes/finalizers
   - orgs/finalizers
   - repoes/finalizers
   - runners/finalizers
@@ -124,6 +126,7 @@ rules:
   resources:
   - auths/status
   - gitea/status
+  - migraterepoes/status
   - orgs/status
   - repoes/status
   - runners/status

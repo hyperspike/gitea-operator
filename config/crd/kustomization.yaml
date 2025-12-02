@@ -8,6 +8,7 @@ resources:
 - bases/hyperspike.io_repoes.yaml
 - bases/hyperspike.io_runners.yaml
 - bases/hyperspike.io_auths.yaml
+- bases/hyperspike.io_migraterepoes.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -48,9 +48,26 @@ type RepoSpec struct {
 	DefaultBranch string `json:"default_branch,omitempty"`
 	// TrustModel of the repository
 	TrustModel string `json:"trust_model,omitempty"`
+	// Mirror settings
+	Mirror *MirrorSpec `json:"push_mirror,omitempty"`
 
 	User *UserRef `json:"user,omitempty"`
 	Org  *OrgRef  `json:"org,omitempty"`
+}
+
+type MirrorSpec struct {
+	// Whether to mirror the repository
+	Enable bool `json:"enable,omitempty"`
+	// Interval for mirroring the repository
+	Interval string `json:"interval,omitempty"`
+	// Remote URL for the mirror
+	RemoteURL string `json:"remote_url,omitempty"`
+	// SyncOnCommit indicates whether to sync on every commit
+	SyncOnCommit bool `json:"sync_on_commit,omitempty"`
+	// UserName for authentication
+	UserName string `json:"user_name,omitempty"`
+	// Password for authentication
+	Password string `json:"password,omitempty"`
 }
 
 // RepoStatus defines the observed state of Repo

@@ -6,4 +6,5 @@ resources:
 - user.yaml
 - v1_runner.yaml
 - v1_auth.yaml
+- v1_migraterepo.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
