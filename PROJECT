@@ -63,4 +63,12 @@ resources:
   kind: Auth
   path: hyperspike.io/gitea-operator/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: hyperspike.io
+  kind: MigrateRepo
+  path: hyperspike.io/gitea-operator/api/v1
+  version: v1
 version: "3"

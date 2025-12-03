@@ -81,6 +81,28 @@ spec:
               private:
                 description: Whether the repository is private
                 type: boolean
+              push_mirror:
+                description: Mirror settings
+                properties:
+                  enable:
+                    description: Whether to mirror the repository
+                    type: boolean
+                  interval:
+                    description: Interval for mirroring the repository
+                    type: string
+                  password:
+                    description: Password for authentication
+                    type: string
+                  remote_url:
+                    description: Remote URL for the mirror
+                    type: string
+                  sync_on_commit:
+                    description: SyncOnCommit indicates whether to sync on every commit
+                    type: boolean
+                  user_name:
+                    description: UserName for authentication
+                    type: string
+                type: object
               readme:
                 description: Readme of the repository to create
                 type: string

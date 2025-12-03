@@ -669,7 +669,7 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 				gitea.Name: gitea.Name,
 			},
 			PostgresqlParam: zalandov1.PostgresqlParam{
-				PgVersion: "16",
+				PgVersion: "17",
 				Parameters: map[string]string{
 					"shared_preload_libraries": "bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user,timescaledb,pg_cron,pg_stat_kcache,pgaudit",
 				},

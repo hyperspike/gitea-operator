@@ -54,6 +54,8 @@ const repoFinalizer = "repo.hyperspike.io/finalizer"
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.2/pkg/reconcile
+//
+//nolint:gocyclo
 func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -127,6 +129,18 @@ func (r *RepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		})
 		if err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+		}
+		if repo.Spec.Mirror != nil && repo.Spec.Mirror.RemoteURL != "" {
+			_, _, err = r.h.PushMirrors(repo.Spec.Org.Name, repo.Name, g.CreatePushMirrorOption{
+				Interval:       repo.Spec.Mirror.Interval,
+				RemoteAddress:  repo.Spec.Mirror.RemoteURL,
+				SyncONCommit:   repo.Spec.Mirror.SyncOnCommit,
+				RemoteUsername: repo.Spec.Mirror.UserName,
+				RemotePassword: repo.Spec.Mirror.Password,
+			})
+			if err != nil {
+				logger.Error(err, "failed to create push mirror")
+			}
 		}
 		if !repo.Status.Provisioned {
 			repo.Status.Provisioned = true

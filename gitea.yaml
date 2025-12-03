@@ -42,20 +42,20 @@ metadata:
 type: Opaque
 stringData:
   password: test1234
-#---
+---
 #apiVersion: hyperspike.io/v1
 #kind: Org
 #metadata:
 #  labels:
 #    app.kubernetes.io/name: gitea-operator
 #    app.kubernetes.io/managed-by: kustomize
-#  name: test
+#  name: demo
 #spec:
 #  description: Test Env for Operator
 #  instance:
 #    name: git
 #  teams:
-#  - name: Test
+#  - name: Admin
 #    permission: admin
 #    includeAllRepos: true
 #    createOrgRepo: true
@@ -72,8 +72,8 @@ stringData:
 #spec:
 #  private: true
 #  org:
-#    name: test
-#---
+#    name: demo
+---
 #apiVersion: hyperspike.io/v1
 #kind: Repo
 #metadata:
