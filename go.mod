@@ -13,7 +13,7 @@ require (
 	github.com/cert-manager/cert-manager v1.19.2
 	github.com/minio/minio-go/v7 v7.0.97
 	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.2
+	github.com/onsi/gomega v1.38.3
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.87.1
 	github.com/zalando/postgres-operator v1.15.0
 	google.golang.org/api v0.257.0
