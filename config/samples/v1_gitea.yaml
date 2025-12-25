@@ -6,5 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: gitea
 spec:
+  postgres:
+    provider: cnpg # or zalando (default)
   valkey: true
   # TODO(user): Add fields here

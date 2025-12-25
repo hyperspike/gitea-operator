@@ -1,0 +1,33 @@
+---
+apiVersion: hyperspike.io/v1
+kind: Org
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: test
+spec:
+  description: Test Env for Operator
+  instance:
+    name: git
+  teams:
+  - name: Admin
+    permission: admin
+    includeAllRepos: true
+    createOrgRepo: true
+    members:
+    - demo
+---
+apiVersion: hyperspike.io/v1
+kind: Repo
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gitea-operator
+spec:
+  private: true
+  mirror:
+    remote_url: https://github.com/hyperspike/gitea-operator.git
+  org:
+    name: test

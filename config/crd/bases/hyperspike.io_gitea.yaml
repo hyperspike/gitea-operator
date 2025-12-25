@@ -108,6 +108,17 @@ spec:
                     - s3
                     type: string
                 type: object
+              postgres:
+                description: Postgres Configuration
+                properties:
+                  provider:
+                    default: zalando
+                    description: Postgres Provider
+                    enum:
+                    - zalando
+                    - cnpg
+                    type: string
+                type: object
               prometheus:
                 default: false
                 description: enable prometheus integrations

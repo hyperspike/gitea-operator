@@ -71,6 +71,16 @@ type GiteaSpec struct {
 	CertIssuerType string `json:"certIssuerType,omitempty"`
 
 	ClusterDomain string `json:"clusterDomain,omitempty"`
+
+	// Postgres Configuration
+	Postgres PostgresSpec `json:"postgres,omitempty"`
+}
+
+type PostgresSpec struct {
+	// Postgres Provider
+	// +kubebuilder:default:="zalando"
+	// +kubebuilder:validation:Enum=zalando;cnpg
+	Provider string `json:"provider,omitempty"`
 }
 
 type ObjectSpec struct {

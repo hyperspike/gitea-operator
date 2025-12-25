@@ -1,0 +1,68 @@
+kind: User
+apiVersion: hyperspike.io/v1
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dan
+spec:
+  admin: true
+  email: dan@hyperspike.io
+  fullName: Dan
+  password:
+    name: demo-password
+    key: password
+  instance:
+    name: git
+---
+kind: Org
+apiVersion: hyperspike.io/v1
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: hyperspike
+spec:
+  description: Hyperspike Organization
+  instance:
+    name: git
+  teams:
+  - name: Admin
+    permission: admin
+    includeAllRepos: true
+    createOrgRepo: true
+    members:
+    - dan
+  - name: Owners
+    permission: admin
+    includeAllRepos: true
+    createOrgRepo: true
+    members:
+    - dan
+---
+kind: MigrateRepo
+apiVersion: hyperspike.io/v1
+metadata:
+  labels:
+    app.kubernetes.io/name: gitea-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gitea-operator
+spec:
+  org:
+    name: hyperspike
+  url: https://github.com/hyperspike/gitea-operator.git
+  service: git
+  mirror: true
+#---
+#kind: Runner
+#apiVersion: hyperspike.io/v1
+#metadata:
+#  labels:
+#    app.kubernetes.io/name: gitea-operator
+#    app.kubernetes.io/managed-by: kustomize
+#  name: demo-runner
+#spec:
+#  instance:
+#    name: git
+#  org:
+#    name: hyperspike

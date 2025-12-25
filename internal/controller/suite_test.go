@@ -33,6 +33,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	hyperspikeiov1 "hyperspike.io/gitea-operator/api/v1"
+
+	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
+	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -73,6 +79,21 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	err = hyperspikeiov1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = zalandov1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = cnpgv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = certv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = monitoringv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = valkeyv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

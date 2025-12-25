@@ -49,6 +49,7 @@ import (
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
 	hyperv1 "hyperspike.io/gitea-operator/api/v1"
@@ -110,6 +111,7 @@ type GiteaReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;delete;get;list;watch;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=create;delete;get;list;watch
 // +kubebuilder:rbac:groups=acid.zalan.do,resources=postgresqls,verbs=create;delete;get;list;watch
+// +kubebuilder:rbac:groups=postgresql.cnpg.io,resources=clusters,verbs=create;delete;get;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=create;delete;get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
@@ -161,8 +163,14 @@ func (r *GiteaReconciler) setCondition(ctx context.Context, gitea *hyperv1.Gitea
 //nolint:unparam,gocyclo
 func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Gitea) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	if err := r.upsertPG(ctx, gitea); err != nil {
-		return ctrl.Result{}, err
+	if gitea.Spec.Postgres.Provider == "cnpg" {
+		if err := r.upsertCNPG(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.upsertPG(ctx, gitea); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	if gitea.Spec.Prometheus {
 		if err := r.upsertServiceMonitorPG(ctx, gitea); err != nil {
@@ -604,6 +612,62 @@ func labels(name string) map[string]string {
 	}
 }
 
+// upsertCNPG - Create or update a CNPG cluster {{{
+func (r *GiteaReconciler) upsertCNPG(ctx context.Context, gitea *hyperv1.Gitea) error {
+	logger := log.FromContext(ctx)
+	l := labels(gitea.Name)
+	l["app.kubernetes.io/component"] = "database"
+
+	cnpg := &cnpgv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gitea.Name + "-db",
+			Namespace: gitea.Namespace,
+			Labels:    l,
+		},
+		Spec: cnpgv1.ClusterSpec{
+			Instances: 2,
+			ImageName: "ghcr.io/cloudnative-pg/postgresql:17",
+			StorageConfiguration: cnpgv1.StorageConfiguration{
+				Size: "15Gi",
+			},
+			Bootstrap: &cnpgv1.BootstrapConfiguration{
+				InitDB: &cnpgv1.BootstrapInitDB{
+					Database: gitea.Name,
+					Owner:    gitea.Name,
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1500m"),
+					corev1.ResourceMemory: resource.MustParse("1280Mi"),
+				},
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(gitea, cnpg, r.Scheme); err != nil {
+		return err
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-db", Namespace: gitea.Namespace}, cnpg)
+	if err != nil && errors.IsNotFound(err) {
+		r.Recorder.Event(gitea, "Normal", "Creating",
+			fmt.Sprintf("CNPG Cluster %s is being created", gitea.Name+"-db"))
+		if err := r.Create(ctx, cnpg); err != nil {
+			logger.Error(err, "failed to create CNPG cluster")
+			return err
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
+// }}}
+
 // upsertPG - Create or update a postgres cluster {{{
 func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
@@ -741,6 +805,16 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 
 // pgRunning - check the postgres CR for state {{{
 func (r *GiteaReconciler) pgRunning(ctx context.Context, gitea *hyperv1.Gitea) (bool, error) {
+	if gitea.Spec.Postgres.Provider == "cnpg" {
+		cnpg := &cnpgv1.Cluster{}
+		if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-db", Namespace: gitea.Namespace}, cnpg); err != nil {
+			return false, err
+		}
+		if cnpg.Status.Phase == cnpgv1.PhaseHealthy {
+			return true, nil
+		}
+		return false, nil
+	}
 	l := labels(gitea.Name)
 	l["app.kubernetes.io/component"] = "database"
 	pg := &zalandov1.Postgresql{
@@ -2214,45 +2288,89 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 		})
 	}
 
-	dbs := []corev1.EnvVar{
-		{
-			Name:  "GITEA__DATABASE__DB_TYPE",
-			Value: "postgres",
-		},
-		{
-			Name:  "GITEA__DATABASE__HOST",
-			Value: gitea.Name + "-" + gitea.Name + "." + gitea.Namespace + ".svc:5432",
-		},
-		{
-			Name:  "GITEA__DATABASE__NAME",
-			Value: gitea.Name,
-		},
-		{
-			Name: "GITEA__DATABASE__USER",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: gitea.Name + "." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
+	dbs := []corev1.EnvVar{}
+	if gitea.Spec.Postgres.Provider == "cnpg" {
+		dbs = []corev1.EnvVar{
+			{
+				Name:  "GITEA__DATABASE__DB_TYPE",
+				Value: "postgres",
+			},
+			{
+				Name:  "GITEA__DATABASE__HOST",
+				Value: gitea.Name + "-db-rw." + gitea.Namespace + ".svc:5432",
+			},
+			{
+				Name:  "GITEA__DATABASE__NAME",
+				Value: gitea.Name,
+			},
+			{
+				Name: "GITEA__DATABASE__USER",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: gitea.Name + "-db-app",
+						},
+						Key: "username",
 					},
-					Key: "username",
 				},
 			},
-		},
-		{
-			Name: "GITEA__DATABASE__PASSWD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: gitea.Name + "." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
+			{
+				Name: "GITEA__DATABASE__PASSWD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: gitea.Name + "-db-app",
+						},
+						Key: "password",
 					},
-					Key: "password",
 				},
 			},
-		},
-		{
-			Name:  "GITEA__DATABASE__SSL_MODE",
-			Value: "require",
-		},
+			{
+				Name:  "GITEA__DATABASE__SSL_MODE",
+				Value: "require",
+			},
+		}
+	} else {
+		dbs = []corev1.EnvVar{
+			{
+				Name:  "GITEA__DATABASE__DB_TYPE",
+				Value: "postgres",
+			},
+			{
+				Name:  "GITEA__DATABASE__HOST",
+				Value: gitea.Name + "-" + gitea.Name + "." + gitea.Namespace + ".svc:5432",
+			},
+			{
+				Name:  "GITEA__DATABASE__NAME",
+				Value: gitea.Name,
+			},
+			{
+				Name: "GITEA__DATABASE__USER",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: gitea.Name + "." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
+						},
+						Key: "username",
+					},
+				},
+			},
+			{
+				Name: "GITEA__DATABASE__PASSWD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: gitea.Name + "." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
+						},
+						Key: "password",
+					},
+				},
+			},
+			{
+				Name:  "GITEA__DATABASE__SSL_MODE",
+				Value: "require",
+			},
+		}
 	}
 	sts.Spec.Template.Spec.InitContainers[1].Env = append(sts.Spec.Template.Spec.InitContainers[1].Env, dbs...)
 	sts.Spec.Template.Spec.InitContainers[2].Env = append(sts.Spec.Template.Spec.InitContainers[2].Env, dbs...)
@@ -2371,6 +2489,7 @@ func (r *GiteaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&zalandov1.Postgresql{}).
+		Owns(&cnpgv1.Cluster{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&netv1.Ingress{}).
 		For(&hyperv1.Gitea{}).
