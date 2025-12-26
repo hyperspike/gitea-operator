@@ -90,6 +90,8 @@ const (
 	Gitea           = "gitea"
 	Metrics         = "metrics"
 	objectFinalizer = "object.hyperspike.io/finalizer"
+	Cnpg            = "cnpg"
+	DATABASE        = "database"
 )
 
 // GiteaReconciler reconciles a Gitea object
@@ -163,7 +165,7 @@ func (r *GiteaReconciler) setCondition(ctx context.Context, gitea *hyperv1.Gitea
 //nolint:unparam,gocyclo
 func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Gitea) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	if gitea.Spec.Postgres.Provider == "cnpg" {
+	if gitea.Spec.Postgres.Provider == Cnpg {
 		if err := r.upsertCNPG(ctx, gitea); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -616,7 +618,7 @@ func labels(name string) map[string]string {
 func (r *GiteaReconciler) upsertCNPG(ctx context.Context, gitea *hyperv1.Gitea) error {
 	logger := log.FromContext(ctx)
 	l := labels(gitea.Name)
-	l["app.kubernetes.io/component"] = "database"
+	l["app.kubernetes.io/component"] = DATABASE
 
 	cnpg := &cnpgv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -700,7 +702,7 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 		return err
 	}
 	l := labels(gitea.Name)
-	l["app.kubernetes.io/component"] = "database"
+	l["app.kubernetes.io/component"] = DATABASE
 	pg := &zalandov1.Postgresql{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gitea.Name + "-" + gitea.Name,
@@ -805,7 +807,7 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 
 // pgRunning - check the postgres CR for state {{{
 func (r *GiteaReconciler) pgRunning(ctx context.Context, gitea *hyperv1.Gitea) (bool, error) {
-	if gitea.Spec.Postgres.Provider == "cnpg" {
+	if gitea.Spec.Postgres.Provider == Cnpg {
 		cnpg := &cnpgv1.Cluster{}
 		if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-db", Namespace: gitea.Namespace}, cnpg); err != nil {
 			return false, err
@@ -816,7 +818,7 @@ func (r *GiteaReconciler) pgRunning(ctx context.Context, gitea *hyperv1.Gitea) (
 		return false, nil
 	}
 	l := labels(gitea.Name)
-	l["app.kubernetes.io/component"] = "database"
+	l["app.kubernetes.io/component"] = DATABASE
 	pg := &zalandov1.Postgresql{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gitea.Name + "-" + gitea.Name,
@@ -2288,8 +2290,8 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 		})
 	}
 
-	dbs := []corev1.EnvVar{}
-	if gitea.Spec.Postgres.Provider == "cnpg" {
+	var dbs []corev1.EnvVar
+	if gitea.Spec.Postgres.Provider == Cnpg {
 		dbs = []corev1.EnvVar{
 			{
 				Name:  "GITEA__DATABASE__DB_TYPE",
