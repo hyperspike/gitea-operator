@@ -19,6 +19,8 @@ spec:
     #annotations:
     #  cert-manager.io/cluster-issuer: letsencrypt
     host: git.local.net
+  postgres:
+    provider: cnpg
 ---
 apiVersion: hyperspike.io/v1
 kind: User
@@ -26,7 +28,7 @@ metadata:
   labels:
     app.kubernetes.io/name: gitea-operator
     app.kubernetes.io/managed-by: kustomize
-  name: demo
+  name: dan
 spec:
   email: demo@git.local
   password:

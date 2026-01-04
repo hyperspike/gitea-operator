@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -25,22 +26,27 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	zalandov1 "github.com/zalando/postgres-operator/pkg/apis/acid.zalan.do/v1"
 	valkeyv1 "hyperspike.io/valkey-operator/api/v1"
 
 	hyperspikeiov1 "hyperspike.io/gitea-operator/api/v1"
+	"hyperspike.io/gitea-operator/config/crd/bases"
 	"hyperspike.io/gitea-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
@@ -53,10 +59,12 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(certv1.AddToScheme(scheme))
 	utilruntime.Must(zalandov1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(hyperspikeiov1.AddToScheme(scheme))
+	utilruntime.Must(cnpgv1.AddToScheme(scheme))
 	utilruntime.Must(valkeyv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -208,9 +216,50 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := applyEmbeddedCRDs(mgr); err != nil {
+		setupLog.Error(err, "unable to apply embedded CRDs")
+		os.Exit(1)
+	}
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func applyEmbeddedCRDs(mgr ctrl.Manager) error {
+	ctx := context.Background()
+	c, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
+	if err != nil {
+		return err
+	}
+
+	entries, err := bases.CRDs.ReadDir(".")
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		data, err := bases.CRDs.ReadFile(entry.Name())
+		if err != nil {
+			return err
+		}
+
+		var crd apiextensionsv1.CustomResourceDefinition
+		if err := yaml.Unmarshal(data, &crd); err != nil {
+			return err
+		}
+
+		setupLog.Info("Applying CRD", "name", crd.Name)
+		if err := c.Patch(ctx, &crd, client.Apply, client.ForceOwnership, client.FieldOwner("gitea-operator")); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

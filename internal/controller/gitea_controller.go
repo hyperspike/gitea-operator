@@ -36,11 +36,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -119,6 +122,7 @@ type GiteaReconciler struct {
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings;roles,verbs=create;delete;get;list;watch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;patch;update;create;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -2485,15 +2489,72 @@ func (r *GiteaReconciler) upsertGiteaIngress(ctx context.Context, gitea *hyperv1
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GiteaReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 3}).
-		Owns(&corev1.Service{}).
-		Owns(&corev1.Secret{}).
-		Owns(&corev1.ServiceAccount{}).
-		Owns(&zalandov1.Postgresql{}).
-		Owns(&cnpgv1.Cluster{}).
-		Owns(&appsv1.StatefulSet{}).
-		Owns(&netv1.Ingress{}).
-		For(&hyperv1.Gitea{}).
-		Complete(r)
+	cnpgEnabled := false
+	zalandoEnabled := false
+
+	if checkCRDExists(cnpgv1.SchemeGroupVersion.WithKind("Cluster")) {
+		cnpgEnabled = true
+	}
+	if checkCRDExists(zalandov1.SchemeGroupVersion.WithKind("Postgresql")) {
+		zalandoEnabled = true
+	}
+	if cnpgEnabled && zalandoEnabled {
+		return ctrl.NewControllerManagedBy(mgr).
+			WithOptions(controller.Options{MaxConcurrentReconciles: 3}).
+			Owns(&corev1.Service{}).
+			Owns(&corev1.Secret{}).
+			Owns(&corev1.ServiceAccount{}).
+			Owns(&zalandov1.Postgresql{}).
+			Owns(&cnpgv1.Cluster{}).
+			Owns(&appsv1.StatefulSet{}).
+			Owns(&netv1.Ingress{}).
+			For(&hyperv1.Gitea{}).
+			Complete(r)
+	}
+	if zalandoEnabled {
+		return ctrl.NewControllerManagedBy(mgr).
+			WithOptions(controller.Options{MaxConcurrentReconciles: 3}).
+			Owns(&corev1.Service{}).
+			Owns(&corev1.Secret{}).
+			Owns(&corev1.ServiceAccount{}).
+			Owns(&zalandov1.Postgresql{}).
+			Owns(&appsv1.StatefulSet{}).
+			Owns(&netv1.Ingress{}).
+			For(&hyperv1.Gitea{}).
+			Complete(r)
+	}
+	if cnpgEnabled {
+		return ctrl.NewControllerManagedBy(mgr).
+			WithOptions(controller.Options{MaxConcurrentReconciles: 3}).
+			Owns(&corev1.Service{}).
+			Owns(&corev1.Secret{}).
+			Owns(&corev1.ServiceAccount{}).
+			Owns(&cnpgv1.Cluster{}).
+			Owns(&appsv1.StatefulSet{}).
+			Owns(&netv1.Ingress{}).
+			For(&hyperv1.Gitea{}).
+			Complete(r)
+	}
+	return fmt.Errorf("no supported Postgres CRD detected")
+}
+
+func checkCRDExists(gvk schema.GroupVersionKind) bool {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return false
+	}
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return false
+	}
+	apiResourceLists, err := dc.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		return false
+	}
+	for _, apiResource := range apiResourceLists.APIResources {
+		if apiResource.Kind == gvk.Kind {
+			return true
+		}
+	}
+	return false
 }

@@ -23,8 +23,8 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-K8S_VERSION ?= 1.34.2
-CILIUM_VERSION ?= 1.18.4
+K8S_VERSION ?= 1.35.0
+CILIUM_VERSION ?= 1.18.5
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= $(K8S_VERSION)
 
@@ -151,15 +151,20 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
-.PHONY: minikube tunnel proxy
+.PHONY: minikube tunnel proxy minikube-destroy
 minikube: ## Spool up a local minikube cluster for development
 	$QK8S_VERSION=$(K8S_VERSION) \
-		CILIUM_VERSION=$(CILIUM_VERSION) \
+	  CILIUM_VERSION=$(CILIUM_VERSION) \
+	  CNPG=$(CNPG) \
 		hack/minikube.sh
 	$QTLS=$(TLS) \
-		PROMETHEUS=$(PROMETHEUS) \
-		VALKEY=$(VALKEY) \
+	  PROMETHEUS=$(PROMETHEUS) \
+	  VALKEY=$(VALKEY) \
+	  CNPG=$(CNPG) \
 		hack/quickstart.sh
+
+minikube-destroy: ## Destroy the local minikube cluster
+	$Q$(MINIKUBE) delete -p north
 
 tunnel: ## turn on minikube's tunnel to test ingress and get UI access
 	$Q$(MINIKUBE) tunnel -p north

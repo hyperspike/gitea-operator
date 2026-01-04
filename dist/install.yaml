@@ -247,6 +247,17 @@ spec:
                     - s3
                     type: string
                 type: object
+              postgres:
+                description: Postgres Configuration
+                properties:
+                  provider:
+                    default: zalando
+                    description: Postgres Provider
+                    enum:
+                    - zalando
+                    - cnpg
+                    type: string
+                type: object
               prometheus:
                 default: false
                 description: enable prometheus integrations
@@ -1221,6 +1232,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - apps
   resources:
   - statefulsets
@@ -1330,6 +1353,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - postgresql.cnpg.io
+  resources:
+  - clusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -1675,7 +1708,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: ghcr.io/hyperspike/gitea-operator:v0.0.14
+        image: localhost:5000/gitea-operator:1
         livenessProbe:
           httpGet:
             path: /healthz
