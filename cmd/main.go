@@ -157,7 +157,7 @@ func main() {
 	if err = (&controller.GiteaReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("gitea-controller"),
+		Recorder: mgr.GetEventRecorder("gitea-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Gitea")
 		os.Exit(1)
@@ -186,7 +186,7 @@ func main() {
 	if err = (&controller.RunnerReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("gitea-runner-controller"),
+		Recorder: mgr.GetEventRecorder("gitea-runner-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Runner")
 		os.Exit(1)
@@ -256,6 +256,8 @@ func applyEmbeddedCRDs(mgr ctrl.Manager) error {
 		}
 
 		setupLog.Info("Applying CRD", "name", crd.Name)
+		// Using client.Apply despite being deprecated because there is
+		// nolint
 		if err := c.Patch(ctx, &crd, client.Apply, client.ForceOwnership, client.FieldOwner("gitea-operator")); err != nil {
 			return err
 		}

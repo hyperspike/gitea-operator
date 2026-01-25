@@ -40,7 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -100,7 +100,7 @@ const (
 // GiteaReconciler reconciles a Gitea object
 type GiteaReconciler struct {
 	client.Client
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 	Scheme   *runtime.Scheme
 }
 
@@ -225,13 +225,11 @@ func (r *GiteaReconciler) reconcileGitea(ctx context.Context, gitea *hyperv1.Git
 			}
 		}
 	}
-	r.Recorder.Event(gitea, "Normal", "Running",
-		fmt.Sprintf("Postgres %s is running",
-			gitea.Name+"-"+gitea.Name))
+	r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Running",
+		"DatabaseUp", "Postgres  %s-%s is running", gitea.Name, gitea.Name)
 	if gitea.Spec.Valkey {
-		r.Recorder.Event(gitea, "Normal", "Running",
-			fmt.Sprintf("Valkey %s is running",
-				gitea.Name+"-valkey"))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Running",
+			"CacheUp", "Valkey %s is running", gitea.Name+"-valkey")
 	}
 	access, secret := "", ""
 	if gitea.Spec.ObjectStorage != nil {
@@ -660,8 +658,8 @@ func (r *GiteaReconciler) upsertCNPG(ctx context.Context, gitea *hyperv1.Gitea) 
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-db", Namespace: gitea.Namespace}, cnpg)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Creating",
-			fmt.Sprintf("CNPG Cluster %s is being created", gitea.Name+"-db"))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"ClusterCreate", "CNPG Cluster %s is being created", gitea.Name+"-db")
 		if err := r.Create(ctx, cnpg); err != nil {
 			logger.Error(err, "failed to create CNPG cluster")
 			return err
@@ -795,8 +793,8 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 	}
 	err = r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-" + gitea.Name, Namespace: gitea.Namespace}, pg)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Creating",
-			fmt.Sprintf("Postgres %s is being created", gitea.Name+"-"+gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"CreateDB", "Postgres %s is being created", gitea.Name+"-"+gitea.Name)
 		if err := r.Create(ctx, pg); err != nil {
 			logger.Error(err, "failed to create postgres")
 			return err
@@ -869,8 +867,8 @@ func (r *GiteaReconciler) upsertValkey(ctx context.Context, gitea *hyperv1.Gitea
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-valkey", Namespace: gitea.Namespace}, vk)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Creating",
-			fmt.Sprintf("Valkey %s is being created", gitea.Name+"-valkey"))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"CreateCache", "Valkey %s is being created", gitea.Name+"-valkey")
 		if err := r.Create(ctx, vk); err != nil {
 			logger.Error(err, "failed to create valkey")
 			return err
@@ -954,8 +952,8 @@ func (r *GiteaReconciler) upsertGiteaSvc(ctx context.Context, gitea *hyperv1.Git
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, svc)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("Service %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"ServiceCreate", "Service %s is being created", gitea.Name)
 		if err := r.Create(ctx, svc); err != nil {
 			logger.Error(err, "failed to create service")
 			return err
@@ -1227,8 +1225,8 @@ func (r *GiteaReconciler) upsertCertificate(ctx context.Context, gitea *hyperv1.
 			logger.Error(err, "failed to create certificate")
 			return err
 		}
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("Certificate %s/%s is created", gitea.Namespace, gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"CertificateCreate", "Certificate %s/%s is being created", gitea.Namespace, gitea.Name)
 	} else if err != nil {
 		logger.Error(err, "failed to fetch certificate")
 		return err
@@ -1256,8 +1254,8 @@ func (r *GiteaReconciler) upsertGiteaSa(ctx context.Context, gitea *hyperv1.Gite
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, sa)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("ServiceAccount %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"ServiceAccountCreate", "ServiceAccount %s is being created", gitea.Name)
 		if err := r.Create(ctx, sa); err != nil {
 			logger.Error(err, "failed to create serviceaccount")
 			return err
@@ -1304,8 +1302,8 @@ func (r *GiteaReconciler) upsertGiteaRole(ctx context.Context, gitea *hyperv1.Gi
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, role)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("Role %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"RoleCreate", "Role %s is being created", gitea.Name)
 		if err := r.Create(ctx, role); err != nil {
 			logger.Error(err, "failed to create role")
 			return err
@@ -1342,8 +1340,8 @@ func (r *GiteaReconciler) upsertGiteaRoleBinding(ctx context.Context, gitea *hyp
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, rb)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("RoleBinding %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"RoleBindingCreate", "RoleBinding %s is being created", gitea.Name)
 		if err := r.Create(ctx, rb); err != nil {
 			logger.Error(err, "failed to create rolebinding")
 			return err
@@ -1402,7 +1400,8 @@ func (r *GiteaReconciler) upsertServiceMonitor(ctx context.Context, gitea *hyper
 			logger.Error(err, "failed to create servicemonitor")
 			return err
 		}
-		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("ServiceMonitor %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, sm, corev1.EventTypeNormal, "Creating",
+			"ServiceMonitorCreate", "ServiceMonitor %s is being created", gitea.Name)
 	} else {
 		return err
 	}
@@ -1445,7 +1444,8 @@ func (r *GiteaReconciler) upsertMetricsService(ctx context.Context, gitea *hyper
 			logger.Error(err, "failed to create metrics service")
 			return err
 		}
-		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("Metrics Service %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, svc, corev1.EventTypeNormal, "Creating",
+			"MetricsServiceCreate", "Metrics Service %s is being created", gitea.Name)
 	} else {
 		return err
 	}
@@ -1491,7 +1491,8 @@ func (r *GiteaReconciler) upsertServiceMonitorPG(ctx context.Context, gitea *hyp
 			logger.Error(err, "failed to create servicemonitor")
 			return err
 		}
-		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("ServiceMonitor %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, sm, corev1.EventTypeNormal, "Creating",
+			"ServiceMonitorCreate", "ServiceMonitor %s is being created", gitea.Name+"-db")
 	} else {
 		return err
 	}
@@ -1538,7 +1539,8 @@ func (r *GiteaReconciler) upsertMetricsServicePG(ctx context.Context, gitea *hyp
 			logger.Error(err, "failed to create metrics service")
 			return err
 		}
-		r.Recorder.Event(gitea, "Normal", "Created", fmt.Sprintf("Metrics Service %s is created", gitea.Name))
+		r.Recorder.Eventf(gitea, svc, corev1.EventTypeNormal, "Creating",
+			"MetricsServiceCreate", "Metrics Service %s is being created", gitea.Name+"-db-metrics")
 	} else {
 		return err
 	}
@@ -1697,8 +1699,8 @@ func (r *GiteaReconciler) upsertSecret(ctx context.Context, gitea *hyperv1.Gitea
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: gitea.Namespace}, &fetched)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("Secret %s is created", name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"SecretCreate", "Secret %s is being created", name)
 		if err := r.Create(ctx, &secret); err != nil {
 			logger.Error(err, "failed to create secret")
 			return err
@@ -1706,8 +1708,8 @@ func (r *GiteaReconciler) upsertSecret(ctx context.Context, gitea *hyperv1.Gitea
 	} else if err == nil && !once {
 		if !matchSecrets(fetched, secret) {
 			logger.Info("secrets unmatched, updating and restarting")
-			r.Recorder.Event(gitea, "Normal", "Updated",
-				fmt.Sprintf("Secret %s is updated", name))
+			r.Recorder.Eventf(gitea, &fetched, corev1.EventTypeNormal, "Updating",
+				"SecretUpdate", "Secret %s is being updated", name)
 			if err := r.Update(ctx, &secret); err != nil {
 				logger.Error(err, "failed to update secret")
 				return err
@@ -1819,11 +1821,11 @@ func (r *GiteaReconciler) restart(ctx context.Context, gitea *hyperv1.Gitea) err
 			continue
 		}
 		if pod.Labels["app.kubernetes.io/component"] == "deployment" && pod.Labels["app.kubernetes.io/instance"] == gitea.Name {
+			r.Recorder.Eventf(gitea, &pod, corev1.EventTypeNormal, "Restarting",
+				"PodRestart", "Secret update requires restart of pod %s", pod.Name)
 			if err := r.Delete(ctx, &pod); err != nil {
 				logger.Error(err, "failed deleting pod")
 			}
-			r.Recorder.Event(gitea, "Normal", "Restarting",
-				fmt.Sprintf("Secret update requires restart of pod %s", pod.Name))
 		}
 	}
 	return nil
@@ -1992,7 +1994,8 @@ func (r *GiteaReconciler) adminToken(ctx context.Context, gitea *hyperv1.Gitea) 
 		logger.Error(err, "failed to update secret "+gitea.Name+"-admin."+gitea.Namespace)
 		return err
 	}
-	r.Recorder.Event(gitea, "Normal", "Token", fmt.Sprintf("Admin token created added to %s secret", gitea.Name+"-admin"))
+	r.Recorder.Eventf(gitea, secret, corev1.EventTypeNormal, "Creating",
+		"AdminTokenCreate", "Admin token created and added to %s secret", gitea.Name+"-admin")
 	if err := r.setCondition(ctx, gitea, "ApiToken", "True", "ApiToken", "Api Token Provisioned"); err != nil {
 		logger.Error(err, "Gitea status update failed.")
 		return err
@@ -2030,8 +2033,8 @@ func (r *GiteaReconciler) upsertPDB(ctx context.Context, gitea *hyperv1.Gitea) e
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, pdb)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Creating",
-			fmt.Sprintf("PDB %s is being created", gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"PDBCreate", "PDB %s is being created", gitea.Name)
 		if err := r.Create(ctx, pdb); err != nil {
 			logger.Error(err, "failed to create pdb")
 			return err
@@ -2402,8 +2405,8 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: gitea.Name, Namespace: gitea.Namespace}, sts)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(gitea, "Normal", "Created",
-			fmt.Sprintf("StatefulSet %s is updated", gitea.Name))
+		r.Recorder.Eventf(gitea, nil, corev1.EventTypeNormal, "Creating",
+			"StatefulSetCreate", "StatefulSet %s is being created", gitea.Name)
 		if err := r.Create(ctx, sts); err != nil {
 			logger.Error(err, "failed to create statefulset")
 			return err
