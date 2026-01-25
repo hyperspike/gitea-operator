@@ -186,7 +186,7 @@ func main() {
 	if err = (&controller.RunnerReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("gitea-runner-controller"),
+		Recorder: mgr.GetEventRecorder("gitea-runner-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Runner")
 		os.Exit(1)

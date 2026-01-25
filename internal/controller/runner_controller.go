@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"time"
 
@@ -28,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -43,7 +42,7 @@ import (
 // RunnerReconciler reconciles a Runner object
 type RunnerReconciler struct {
 	client.Client
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 	Scheme   *runtime.Scheme
 }
 
@@ -166,8 +165,8 @@ func (r *RunnerReconciler) upsertRunnerSA(ctx context.Context, runner *hyperv1.R
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: runner.Name, Namespace: runner.Namespace}, sa)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(runner, "Normal", "Created",
-			fmt.Sprintf("ServiceAccount %s is created", runner.Name))
+		r.Recorder.Eventf(runner, nil, "Normal", "Created",
+			"ServiceAccountCreated", "ServiceAccount %s is created", runner.Name)
 		if err := r.Create(ctx, sa); err != nil {
 			logger.Error(err, "failed to create serviceaccount")
 			return err
@@ -199,8 +198,8 @@ func (r *RunnerReconciler) upsertRunnerSecret(ctx context.Context, token string,
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: runner.Name, Namespace: runner.Namespace}, &fetched)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(runner, "Normal", "Created",
-			fmt.Sprintf("Secret %s is created", runner.Name))
+		r.Recorder.Eventf(runner, nil, "Normal", "Created",
+			"SecretCreated", "Secret %s is created", runner.Name)
 		if err := r.Create(ctx, &secret); err != nil {
 			logger.Error(err, "failed to create secret")
 			return err
@@ -360,14 +359,15 @@ func (r *RunnerReconciler) upsertRunnerSts(ctx context.Context, runner *hyperv1.
 	}
 	err := r.Get(ctx, types.NamespacedName{Name: runner.Name, Namespace: runner.Namespace}, sts)
 	if err != nil && errors.IsNotFound(err) {
-		r.Recorder.Event(runner, "Normal", "Created",
-			fmt.Sprintf("StatefulSet %s is updated", runner.Name))
+		r.Recorder.Eventf(runner, nil, "Normal", "Created",
+			"StatefulSetCreated", "StatefulSet %s is created", runner.Name)
 		if err := r.Create(ctx, sts); err != nil {
 			logger.Error(err, "failed to create statefulset")
 			return err
 		}
 	} else if runner.Spec.Replicas != int(*sts.Spec.Replicas) {
-		r.Recorder.Event(runner, "Normal", "Updated", fmt.Sprintf("StatefulSet %s is updated replicas %d", runner.Name, runner.Spec.Replicas))
+		r.Recorder.Eventf(runner, sts, "Normal", "Updating",
+			"StatefulSetUpdating", "StatefulSet %s is updating replicas from %d to %d", runner.Name, *sts.Spec.Replicas, runner.Spec.Replicas)
 		sts.Spec.Replicas = replicas
 		if err := r.Update(ctx, sts); err != nil {
 			logger.Error(err, "failed to update statefulset")
