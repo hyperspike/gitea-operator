@@ -256,6 +256,8 @@ func applyEmbeddedCRDs(mgr ctrl.Manager) error {
 		}
 
 		setupLog.Info("Applying CRD", "name", crd.Name)
+		// Using client.Apply despite being deprecated because there is
+		// nolint
 		if err := c.Patch(ctx, &crd, client.Apply, client.ForceOwnership, client.FieldOwner("gitea-operator")); err != nil {
 			return err
 		}
