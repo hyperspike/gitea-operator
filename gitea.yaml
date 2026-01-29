@@ -7,7 +7,7 @@ metadata:
   name: git
 spec:
   tls: true
-  image: codeberg.org/forgejo/forgejo:14.0.1
+  image: codeberg.org/forgejo/forgejo:14.0.2
   #objectStorage:
   #  type: s3
   certIssuer: selfsigned
