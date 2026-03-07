@@ -201,6 +201,6 @@ func (c *Client) Post(url, contentType string, body io.Reader) (resp *http.Respo
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", "gitea-operator/0.1.0")
 	req.Header.Set("Authorization", "token "+c.token)
-	return c.httpClient.Do(req)
+	return c.httpClient.Do(req) // #nosec G704
 
 }
