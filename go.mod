@@ -5,7 +5,7 @@ go 1.25.6
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
 	cloud.google.com/go/iam v1.5.3
-	cloud.google.com/go/storage v1.60.0
+	cloud.google.com/go/storage v1.61.1
 	code.gitea.io/sdk/gitea v0.23.2
 	github.com/aws/aws-sdk-go-v2/config v1.32.11
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.5
@@ -17,7 +17,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.89.0
 	github.com/zalando/postgres-operator v1.15.1
-	google.golang.org/api v0.270.0
+	google.golang.org/api v0.271.0
 	hyperspike.io/valkey-operator v0.0.61
 	k8s.io/api v0.35.2
 	k8s.io/apiextensions-apiserver v0.35.2
@@ -29,7 +29,7 @@ require (
 require (
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect
-	cloud.google.com/go/auth v0.18.2 // indirect
+	cloud.google.com/go/auth v0.18.3-0.20260310051336-87cdcc9f7568 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/monitoring v1.24.3 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
@@ -145,12 +145,12 @@ require (
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
-	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
