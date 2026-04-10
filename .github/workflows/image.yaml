@@ -52,7 +52,7 @@ jobs:
       run: make V=1
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
+      uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
       id: docker_build
       with:
         context: .
