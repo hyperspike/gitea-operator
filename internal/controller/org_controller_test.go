@@ -38,7 +38,7 @@ var _ = Describe("Org Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: DEFAULT, // TODO(user):Modify as needed
 		}
 		org := &hyperspikeiov1.Org{}
 
@@ -49,7 +49,7 @@ var _ = Describe("Org Controller", func() {
 				resource := &hyperspikeiov1.Org{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: DEFAULT,
 					},
 					// TODO(user): Specify other spec details if needed.
 				}

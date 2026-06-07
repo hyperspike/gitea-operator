@@ -30,6 +30,10 @@ import (
 	hyperspikeiov1 "hyperspike.io/gitea-operator/api/v1"
 )
 
+const (
+	DEFAULT = "default"
+)
+
 var _ = Describe("Auth Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
@@ -38,7 +42,7 @@ var _ = Describe("Auth Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: DEFAULT, // TODO(user):Modify as needed
 		}
 		auth := &hyperspikeiov1.Auth{}
 
@@ -49,7 +53,7 @@ var _ = Describe("Auth Controller", func() {
 				resource := &hyperspikeiov1.Auth{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: DEFAULT,
 					},
 					// TODO(user): Specify other spec details if needed.
 				}

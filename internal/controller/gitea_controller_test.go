@@ -38,7 +38,7 @@ var _ = Describe("Gitea Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: DEFAULT, // TODO(user):Modify as needed
 		}
 		gitea := &hyperspikeiov1beta1.Gitea{}
 
@@ -49,7 +49,7 @@ var _ = Describe("Gitea Controller", func() {
 				resource := &hyperspikeiov1beta1.Gitea{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: DEFAULT,
 					},
 					// TODO(user): Specify other spec details if needed.
 				}

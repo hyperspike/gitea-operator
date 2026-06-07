@@ -95,6 +95,10 @@ const (
 	objectFinalizer = "object.hyperspike.io/finalizer"
 	Cnpg            = "cnpg"
 	DATABASE        = "database"
+	PASSWORD        = "password"
+	USERNAME        = "username"
+	TLS             = "tls"
+	_CERTS          = "/certs"
 )
 
 // GiteaReconciler reconciles a Gitea object
@@ -419,7 +423,7 @@ echo '==== END GITEA CONFIGURATION ===='`,
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-admin", map[string]string{"username": Gitea, "password": rs}, true); err != nil {
+	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-admin", map[string]string{USERNAME: Gitea, PASSWORD: rs}, true); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.upsertSecret(ctx, gitea, gitea.Name+"-config", map[string]string{
@@ -765,7 +769,7 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 						Name: "DATA_SOURCE_USER",
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
-								Key: "username",
+								Key: USERNAME,
 								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "postgres." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
 								},
@@ -776,7 +780,7 @@ func (r *GiteaReconciler) upsertPG(ctx context.Context, gitea *hyperv1.Gitea) er
 						Name: "DATA_SOURCE_PASS",
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
-								Key: "password",
+								Key: PASSWORD,
 								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "postgres." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
 								},
@@ -1092,11 +1096,11 @@ func (r *GiteaReconciler) getValkeyPassword(ctx context.Context, gitea *hyperv1.
 	if err := r.Get(ctx, types.NamespacedName{Name: gitea.Name + "-valkey", Namespace: gitea.Namespace}, vk); err != nil {
 		return "", err
 	}
-	_, ok := vk.Data["password"]
+	_, ok := vk.Data[PASSWORD]
 	if !ok {
 		return "", fmt.Errorf("password not found")
 	}
-	return string(vk.Data["password"]), nil
+	return string(vk.Data[PASSWORD]), nil
 }
 
 func (r *GiteaReconciler) getCertManagerIp(ctx context.Context) (string, error) {
@@ -1962,7 +1966,7 @@ func (r *GiteaReconciler) adminToken(ctx context.Context, gitea *hyperv1.Gitea) 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	auth := base64.StdEncoding.EncodeToString([]byte(string(secret.Data["username"]) + ":" + string(secret.Data["password"])))
+	auth := base64.StdEncoding.EncodeToString([]byte(string(secret.Data[USERNAME]) + ":" + string(secret.Data[PASSWORD])))
 	req.Header.Set("Authorization", "Basic "+auth)
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -2252,7 +2256,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: gitea.Name + "-admin",
 					},
-					Key: "username",
+					Key: USERNAME,
 				},
 			},
 		},
@@ -2263,7 +2267,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: gitea.Name + "-admin",
 					},
-					Key: "password",
+					Key: PASSWORD,
 				},
 			},
 		},
@@ -2272,7 +2276,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 	sts.Spec.Template.Spec.Containers[1].Env = append(sts.Spec.Template.Spec.Containers[1].Env, admins...)
 	if gitea.Spec.TLS {
 		sts.Spec.Template.Spec.Volumes = append(sts.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: "tls",
+			Name: TLS,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: gitea.Name + "-tls",
@@ -2280,20 +2284,20 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 			},
 		})
 		sts.Spec.Template.Spec.Containers[0].VolumeMounts = append(sts.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-			Name:      "tls",
-			MountPath: "/certs",
+			Name:      TLS,
+			MountPath: _CERTS,
 		})
 		sts.Spec.Template.Spec.InitContainers[0].VolumeMounts = append(sts.Spec.Template.Spec.InitContainers[0].VolumeMounts, corev1.VolumeMount{
-			Name:      "tls",
-			MountPath: "/certs",
+			Name:      TLS,
+			MountPath: _CERTS,
 		})
 		sts.Spec.Template.Spec.InitContainers[1].VolumeMounts = append(sts.Spec.Template.Spec.InitContainers[1].VolumeMounts, corev1.VolumeMount{
-			Name:      "tls",
-			MountPath: "/certs",
+			Name:      TLS,
+			MountPath: _CERTS,
 		})
 		sts.Spec.Template.Spec.InitContainers[2].VolumeMounts = append(sts.Spec.Template.Spec.InitContainers[2].VolumeMounts, corev1.VolumeMount{
-			Name:      "tls",
-			MountPath: "/certs",
+			Name:      TLS,
+			MountPath: _CERTS,
 		})
 	}
 
@@ -2319,7 +2323,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: gitea.Name + "-db-app",
 						},
-						Key: "username",
+						Key: USERNAME,
 					},
 				},
 			},
@@ -2330,7 +2334,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: gitea.Name + "-db-app",
 						},
-						Key: "password",
+						Key: PASSWORD,
 					},
 				},
 			},
@@ -2360,7 +2364,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: gitea.Name + "." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
 						},
-						Key: "username",
+						Key: USERNAME,
 					},
 				},
 			},
@@ -2371,7 +2375,7 @@ func (r *GiteaReconciler) upsertGiteaSts(ctx context.Context, gitea *hyperv1.Git
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: gitea.Name + "." + gitea.Name + "-" + gitea.Name + ".credentials.postgresql.acid.zalan.do",
 						},
-						Key: "password",
+						Key: PASSWORD,
 					},
 				},
 			},

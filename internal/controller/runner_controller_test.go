@@ -38,7 +38,7 @@ var _ = Describe("Runner Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: DEFAULT, // TODO(user):Modify as needed
 		}
 		runner := &hyperspikeiov1.Runner{}
 
@@ -49,7 +49,7 @@ var _ = Describe("Runner Controller", func() {
 				resource := &hyperspikeiov1.Runner{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: DEFAULT,
 					},
 					// TODO(user): Specify other spec details if needed.
 				}

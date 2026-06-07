@@ -38,7 +38,7 @@ var _ = Describe("MigrateRepo Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: DEFAULT, // TODO(user):Modify as needed
 		}
 		migraterepo := &hyperspikeiov1.MigrateRepo{}
 
@@ -49,7 +49,7 @@ var _ = Describe("MigrateRepo Controller", func() {
 				resource := &hyperspikeiov1.MigrateRepo{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: DEFAULT,
 					},
 					// TODO(user): Specify other spec details if needed.
 				}
