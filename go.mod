@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
-	cloud.google.com/go/iam v1.7.0
+	cloud.google.com/go/iam v1.11.0
 	cloud.google.com/go/storage v1.62.3
 	code.gitea.io/sdk/gitea v0.23.2
 	github.com/aws/aws-sdk-go-v2/config v1.32.23
