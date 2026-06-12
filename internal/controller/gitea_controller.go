@@ -1204,7 +1204,7 @@ func (r *GiteaReconciler) upsertCertificate(ctx context.Context, gitea *hyperv1.
 		Spec: certv1.CertificateSpec{
 			CommonName: gitea.Name + "." + gitea.Namespace + ".svc",
 			SecretName: gitea.Name + "-tls",
-			IssuerRef: cmetav1.ObjectReference{
+			IssuerRef: cmetav1.IssuerReference{
 				Name: gitea.Spec.CertIssuer,
 				Kind: gitea.Spec.CertIssuerType,
 			},
