@@ -76,7 +76,3 @@ type AuthList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Auth `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Auth{}, &AuthList{})
-}

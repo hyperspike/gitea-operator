@@ -138,7 +138,3 @@ type GiteaList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Gitea `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Gitea{}, &GiteaList{})
-}

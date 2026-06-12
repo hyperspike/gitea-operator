@@ -91,7 +91,3 @@ type MigrateRepoList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MigrateRepo `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&MigrateRepo{}, &MigrateRepoList{})
-}

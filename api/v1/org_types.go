@@ -91,7 +91,3 @@ type OrgList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Org `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Org{}, &OrgList{})
-}

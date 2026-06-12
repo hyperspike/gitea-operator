@@ -99,7 +99,3 @@ type RepoList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Repo `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Repo{}, &RepoList{})
-}
