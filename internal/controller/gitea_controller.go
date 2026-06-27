@@ -1780,7 +1780,7 @@ func image(gitea *hyperv1.Gitea) string {
 }
 
 func imageSpoon() string {
-	return "ghcr.io/hyperspike/gitea-spoon:v0.0.3"
+	return "ghcr.io/hyperspike/gitea-spoon:v0.0.5"
 }
 
 var vol = map[string]string{
