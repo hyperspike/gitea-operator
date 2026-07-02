@@ -1,6 +1,6 @@
 module hyperspike.io/gitea-operator
 
-go 1.26.3
+go 1.26.4
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.54.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.104.2
 	github.com/cert-manager/cert-manager v1.20.3
-	github.com/cloudnative-pg/cloudnative-pg v1.29.1
+	github.com/cloudnative-pg/cloudnative-pg v1.30.0
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
@@ -56,9 +56,9 @@ require (
 	github.com/aws/smithy-go v1.27.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudnative-pg/barman-cloud v0.5.0 // indirect
+	github.com/cloudnative-pg/barman-cloud v0.5.1 // indirect
 	github.com/cloudnative-pg/cnpg-i v0.5.0 // indirect
-	github.com/cloudnative-pg/machinery v0.4.0 // indirect
+	github.com/cloudnative-pg/machinery v0.5.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
@@ -104,7 +104,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0 // indirect
+	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.6.0 // indirect
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
@@ -163,7 +163,7 @@ require (
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260603220949-865597e52e25 // indirect
 	k8s.io/streaming v0.36.2 // indirect
-	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2 // indirect
+	k8s.io/utils v0.0.0-20260626114624-be93311217bd // indirect
 	sigs.k8s.io/gateway-api v1.5.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
