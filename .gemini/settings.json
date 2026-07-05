@@ -1,7 +1,7 @@
 {
   "general": {
     "previewFeatures": true,
-    "disableAutoUpdate": true,
-    "enablePromptCompletion": true
+    "enablePromptCompletion": true,
+    "enableAutoUpdate": false
   }
 }
